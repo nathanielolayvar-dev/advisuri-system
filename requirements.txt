@@ -1,0 +1,19 @@
+always have 2 different terminals for backend and forntend
+
+#Backend
+venv for django (django REST):
+- cd advisuri
+- python -m venv venv
+- venv\Scripts\activate
+
+and then install dependencies:
+- pip install django djangorestframework django-cors-headers
+
+# laging activate dapat yung sa backend pag i-run yung server
+to run the server:
+- venv\Scripts\activate
+- python manage.py runserver
+
+#Frontend
+- cd frontend
+- npm run dev
