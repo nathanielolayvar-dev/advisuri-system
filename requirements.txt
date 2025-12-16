@@ -3,7 +3,7 @@ always have 2 different terminals for backend and forntend
 #Backend
 venv for django (django REST):
 - cd advisuri
-- python -m venv venv
+- python3 -m venv venv
 - venv\Scripts\activate
 
 and then install dependencies:
