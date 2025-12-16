@@ -7,7 +7,17 @@ venv for django (django REST):
 - venv\Scripts\activate
 
 and then install dependencies:
-- pip install django djangorestframework django-cors-headers
+- pip install
+asgiref 
+django 
+django-cors-headers
+djangorestframework 
+djangorestframework-simplejwt
+PyJWT
+pytz
+sqlparse
+psycopg2-binary
+python-dotenv
 
 # laging activate dapat yung sa backend pag i-run yung server
 to run the server:
