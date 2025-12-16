@@ -39,7 +39,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "restframework.permissions.IsAuthenticated",
+        "rest_framework.permissions.IsAuthenticated",
     ),
 }
 
@@ -81,7 +81,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 ]
 
-ROOT_URLCONF = 'advisuri.urls'
+ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
     {

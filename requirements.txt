@@ -2,12 +2,12 @@ always have 2 different terminals for backend and forntend
 
 #Backend
 venv for django (django REST):
-- cd advisuri
-- python3 -m venv venv
-- venv\Scripts\activate
+- cd advisuri (folder)
+- python3 -m venv venv (creating virtual environment)
+- env\Scripts\activate 
 
-and then install dependencies:
-- pip install
+and then install dependencies in the virtual environment (prefix before the terminal line):
+- (pip install -r dependencies.txt)
 asgiref 
 django 
 django-cors-headers
@@ -19,9 +19,14 @@ sqlparse
 psycopg2-binary
 python-dotenv
 
-# laging activate dapat yung sa backend pag i-run yung server
+#to start project (in env)
+- django-admin startproject (backend name)
+- cd (backend name)
+- python manage.py startapp api (manage api)
+
+# always activate the backend when running the server
 to run the server:
-- venv\Scripts\activate
+- env\Scripts\activate
 - python manage.py runserver
 
 #Frontend
