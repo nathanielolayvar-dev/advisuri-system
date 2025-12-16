@@ -98,7 +98,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'advisuri.wsgi.application'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database
