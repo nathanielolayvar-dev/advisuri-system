@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import health_check
+from . import views
 
 urlpatterns = [
-    path('health/', health_check),
+    path("notes/", views.NoteListCreate.as_view(), name="note-list"),
+    path("note/delete/<int:pk>/", views.NoteDelete.as_view(), name="note-delete"), 
 ]
