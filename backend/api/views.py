@@ -8,13 +8,14 @@ from .models import Note
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+'''
 @api_view(['GET'])
 def health_check(request):
     return Response({
         "status": "ok",
         "app": "Advisuri System"
     })
-
+'''
 class NoteListCreate(generics.ListCreateAPIView): #class for creating notes
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
