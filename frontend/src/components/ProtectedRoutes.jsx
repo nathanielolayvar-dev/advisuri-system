@@ -1,6 +1,6 @@
 import {Navigate} from "react-router-dom"
 import {jwtDecode} from "jwt-decode"
-import api from "../ api"
+import api from "../api";
 import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"
 import { useState, useEffect } from "react"
 import { set } from "express/lib/response"
@@ -47,12 +47,11 @@ function ProtectedRoute({children}) {
             setIsAuthorized(true) // if token is not yet expired, allow access
         }
         }
-    }
 
     if (isAuthorized === null) {
         return <div>Loading...</div>
     }
 
-    return isAuthorized ? children : <Navigate to="/login"/>//if true, reroute to login page
-
-export default ProtectedRoute
+    return isAuthorized ? children : <Navigate to="/login" />//if true, reroute to login page
+}
+export default ProtectedRoute;
