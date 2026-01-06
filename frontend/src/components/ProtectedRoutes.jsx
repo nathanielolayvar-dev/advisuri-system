@@ -8,10 +8,14 @@ import { set } from "express/lib/response"
 function ProtectedRoute({children}) {
     const [isAuthorized, setIsAuthorized] = useState(null)
 
+    useEffect(() => {
+        auth ().catch(() => setIsAuthorized(false)) //call auth function
+    }, [])
+
     const  refreshToken = async () => { //refresh access token immediately
         const refreshToken = localStorage.getItem(REFRESH_TOKEN)
         try{
-            const res = await api.post("/api/token/refresh/", {
+            const res = await api.post("/api/token/refresh/", { 
                 refresh: refreshToken,  //payload 
             });//send request to backend with refresh token to get new access token
             if (res.status === 200) { //res 200 means success
@@ -50,6 +54,5 @@ function ProtectedRoute({children}) {
     }
 
     return isAuthorized ? children : <Navigate to="/login"/>//if true, reroute to login page
-}
 
 export default ProtectedRoute
