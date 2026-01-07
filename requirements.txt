@@ -1,6 +1,5 @@
-always have 2 different terminals for backend and forntend
+always have 2 different terminals for backend and frontend
 
-#Backend
 venv for django (django REST):
 - cd advisuri (folder)
 - python3 -m venv venv (creating virtual environment)
@@ -32,6 +31,12 @@ to run the server:
 - env\Scripts\activate
 - python manage.py runserver
 
+
+ #                        After the setup is done
 #Frontend
 - cd frontend
 - npm run dev
+
+#Backend
+- cd backend
+- python manage.py runserver
