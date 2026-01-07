@@ -8,4 +8,6 @@ pytz
 sqlparse
 psycopg2-binary
 python-dotenv
+axios
+jwt-decode
 react-router-dom

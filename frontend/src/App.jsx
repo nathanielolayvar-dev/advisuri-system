@@ -1,18 +1,19 @@
 import react from "react"
 import {BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Login from "./pages/Login"
+import Register from "./pages/Register"
 import Home from "./pages/Home"
 import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/ProtectedRoutes"
 
 function Logout() {
-  localStorage.clear() //clear access and refresh token 
-  return <Navigate to="/login" /> //redirect to login page
+  localStorage.clear(); //clear access and refresh token 
+  return <Navigate to="/login" />; //redirect to login page
 }
 
 function RegisterAndLogout() {
-  localStorage.clear() 
-  return <Register />
+  localStorage.clear();
+  return <Register />;
 }
 
 function App() { 

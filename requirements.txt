@@ -18,6 +18,9 @@ pytz
 sqlparse
 psycopg2-binary
 python-dotenv
+axios
+jwt-decode
+react-router-dom
 
 #to start project (in env)
 - django-admin startproject (backend name)
