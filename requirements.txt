@@ -21,6 +21,14 @@ axios
 jwt-decode
 react-router-dom
 
+backend google auth (pip install):
+django-allauth
+google-auth
+requests
+
+frontend google auth:
+npm install @react-oauth/google
+
 #to start project (in env)
 - django-admin startproject (backend name)
 - cd (backend name)

@@ -51,6 +51,8 @@ SIMPLE_JWT = {
 
 # Application definition
 
+SITE_ID=1 #may be changed later
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
