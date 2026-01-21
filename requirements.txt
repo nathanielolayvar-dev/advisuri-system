@@ -48,3 +48,15 @@ to run the server:
 #Backend
 - cd backend
 - python manage.py runserver
+
+
+For typescripts:
+npm install --save-dev @types/react @types/react-dom @types/react-router-dom
+npm install --save-dev typescript-eslint
+npm install clsx tailwind-merge #library needed in the UI section
+npm install @radix-ui/react-accordion lucide-react
+
+Restart the Editor for Typescript
+
+Press Ctrl + Shift + P (or Cmd + Shift + P on Mac).
+Type "Restart TS Server" and press Enter.

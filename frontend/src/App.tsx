@@ -6,17 +6,24 @@ import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoutes';
 
-function Logout() {
-  localStorage.clear(); //clear access and refresh token
-  return <Navigate to="/login" />; //redirect to login page
+/**
+ * Functional component for Logout.
+ * TypeScript infers the return type as JSX.Element.
+ */
+function Logout(): React.JSX.Element {
+  localStorage.clear(); // clear access and refresh token
+  return <Navigate to="/login" />; // redirect to login page
 }
 
-function RegisterAndLogout() {
+/**
+ * Functional component to ensure fresh registration by clearing local state.
+ */
+function RegisterAndLogout(): React.JSX.Element {
   localStorage.clear();
   return <Register />;
 }
 
-function App() {
+function App(): React.JSX.Element {
   return (
     <BrowserRouter>
       <Routes>
@@ -24,8 +31,7 @@ function App() {
           path="/"
           element={
             <ProtectedRoute>
-              {' '}
-              {/* cannot access routes inside without the access token and validity */}
+              {/* Home is protected; requires a valid access token */}
               <Home />
             </ProtectedRoute>
           }
@@ -33,7 +39,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<RegisterAndLogout />} />
-        <Route path="*" element={<NotFound />}></Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

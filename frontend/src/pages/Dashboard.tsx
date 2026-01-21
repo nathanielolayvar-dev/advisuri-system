@@ -1,39 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import api from '../api';
-import Note from '../components/Note';
+import NoteComponent from '../components/Note'; // Renamed to avoid conflict with interface
 import { useNavigate } from 'react-router-dom';
 import '../styles/Home.css';
 
+// 1. Define the shape of a Note object
+export interface Note {
+  id: number;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+// 2. Define the User Profile response shape
+interface UserProfile {
+  name: string;
+}
+
 function Home() {
-  const [notes, setNotes] = useState([]);
-  const [content, setContent] = useState('');
-  const [title, setTitle] = useState('');
-  const [fullName, setFullName] = useState(''); // State for user profile
+  // 3. Apply types to your state
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [content, setContent] = useState<string>('');
+  const [title, setTitle] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    getUserProfile(); // Fetch profile on load
+    getUserProfile();
     getNotes();
   }, []);
 
-  const getUserProfile = () => {
+  const getUserProfile = (): void => {
     api
-      .get('/api/user/profile/') // Call the endpoint we created in the backend
+      .get<UserProfile>('/api/user/profile/')
       .then((res) => {
-        // Set the full name from the new backend response key
         setFullName(res.data.name);
       })
-      .catch((err) => console.log(err));
+      .catch((err) => console.error(err));
   };
 
-  const handleLogout = () => {
-    localStorage.clear(); // Clear JWT tokens
-    navigate('/login'); // Redirect to login
+  const handleLogout = (): void => {
+    localStorage.clear();
+    navigate('/login');
   };
 
-  const getNotes = () => {
+  const getNotes = (): void => {
     api
-      .get('/api/notes/')
+      .get<Note[]>('/api/notes/')
       .then((res) => res.data)
       .then((data) => {
         setNotes(data);
@@ -42,7 +55,7 @@ function Home() {
       .catch((err) => alert(err));
   };
 
-  const deleteNote = (id) => {
+  const deleteNote = (id: number): void => {
     api
       .delete(`/api/notes/delete/${id}/`)
       .then((res) => {
@@ -53,7 +66,7 @@ function Home() {
       .catch((error) => alert(error));
   };
 
-  const createNote = (e) => {
+  const createNote = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     api
       .post('/api/notes/', { content, title })
@@ -61,7 +74,7 @@ function Home() {
         if (res.status === 201) alert('Note created!');
         else alert('failed to make a note.');
         getNotes();
-        setContent(''); // Clear inputs after success
+        setContent('');
         setTitle('');
       })
       .catch((err) => alert(err));
@@ -69,7 +82,6 @@ function Home() {
 
   return (
     <div className="home-wrapper">
-      {/* User Header Section */}
       <div
         className="user-header"
         style={{
@@ -90,7 +102,7 @@ function Home() {
       <div>
         <h2>Notes</h2>
         {notes.map((note) => (
-          <Note note={note} onDelete={deleteNote} key={note.id} />
+          <NoteComponent note={note} onDelete={deleteNote} key={note.id} />
         ))}
       </div>
 
@@ -104,7 +116,9 @@ function Home() {
             id="title"
             name="title"
             required
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setTitle(e.target.value)
+            }
             value={title}
           />
           <label htmlFor="content">Content:</label>
@@ -114,7 +128,9 @@ function Home() {
             name="content"
             required
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+              setContent(e.target.value)
+            }
           ></textarea>
           <br />
           <input type="submit" value="Submit"></input>
