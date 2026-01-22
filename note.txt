@@ -1,3 +1,5 @@
+Previous pages/Note.jsx draft
+
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import api from '../api';
 import NoteComponent from '../components/Note'; // Renamed to avoid conflict with interface
@@ -141,3 +143,27 @@ function Home() {
 }
 
 export default Home;
+
+---------------------------------------------------------------------
+From components/Notes
+
+import React from 'react';
+import '../styles/Note.css';
+
+function Note({ note, onDelete }) {
+  const formattedDate = new Date(note.created_at).toLocaleDateString('en-US');
+
+  return (
+    <div className="note-container">
+      <p className="note-title">{note.title} </p>
+      <p className="note-content">{note.content} </p>
+      <p className="note-date">{formattedDate}</p>
+      <button className="delete-button" onClick={() => onDelete(note.id)}>
+        Delete
+      </button>
+    </div>
+  );
+}
+
+export default Note;
+

@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App'; // Note: Remove the .js extension for TSX
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+// IMPORT TAILWIND CSS
+import './styles/tailwind.css';
+
 // Use '!' to tell TypeScript that the 'root' element definitely exists
 const rootElement = document.getElementById('root')!;
 

@@ -36,6 +36,10 @@ function Form({ route, method }: FormProps) {
       if (method === 'login') {
         localStorage.setItem(ACCESS_TOKEN, res.data.access);
         localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
+
+        // This grabs the 'teacher' or 'student' role from your Django response
+        localStorage.setItem('user_role', (res.data as any).role);
+
         navigate('/');
       } else {
         navigate('/login');

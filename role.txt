@@ -1,0 +1,72 @@
+Great! A full restart is the best way to ensure everything is perfectly synced. Since you've decided to go this route, follow these steps exactly to avoid any "table already exists" or "relation does not exist" errors.
+
+Step 1: Clean Local Files
+Go to backend/api/migrations/.
+
+Delete everything inside that folder EXCEPT __init__.py.
+
+If you accidentally deleted __init__.py, just create a new empty file and name it __init__.py.
+
+Step 2: Wipe Supabase Tables
+Django will fail to migrate if it sees tables with the same names already sitting in Supabase.
+
+Go to your Supabase Dashboard -> SQL Editor.
+
+Run this "Nuclear" script to clear out the old structures:
+
+SQL
+DROP TABLE IF EXISTS api_note CASCADE;
+DROP TABLE IF EXISTS api_user_groups CASCADE;
+DROP TABLE IF EXISTS api_user_user_permissions CASCADE;
+DROP TABLE IF EXISTS api_user CASCADE;
+DELETE FROM django_migrations WHERE app = 'api';
+Step 3: The Fresh Start
+Now, run these commands in your backend terminal in this specific order:
+
+1. Create the new migration blueprint:
+
+PowerShell
+python manage.py makemigrations api
+You should see: + Create model User, + Create model Note.
+
+2. Push the clean tables to Supabase:
+
+PowerShell
+python manage.py migrate
+This time, you should see a long list of Applying... OK. Specifically, look for api.0001_initial... OK.
+
+Step 4: Create your Teacher User
+Now that the database is 100% clean and the tables exist, the shell command will work perfectly.
+
+Enter the shell:
+
+PowerShell
+python manage.py shell
+Paste this code:
+
+Python
+from api.models import User
+User.objects.create_superuser(
+    username='admin_teacher', 
+    email='admin@school.com', 
+    password='yourpassword123', 
+    role='teacher'
+)
+exit()
+
+For students:
+from api.models import User
+
+# Create a regular student account
+User.objects.create_user(
+    username='student_nathan', 
+    email='nathan@student.com', 
+    password='studentpassword123', 
+    role='student'
+)
+exit()
+
+Feature	Superuser   (Teacher/Admin)	            Regular User (Student)
+Method	            create_superuser(...)	    create_user(...)
+Permissions	        Can access /admin panel	    Cannot access /admin panel
+Role Field	        set to 'teacher'	        set to 'student'

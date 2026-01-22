@@ -1,0 +1,7 @@
+/* src/styles/tailwind.css */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme {
+  --font-inter: 'Inter', ui-sans-serif, system-ui;
+}

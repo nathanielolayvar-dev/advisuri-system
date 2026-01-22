@@ -1,0 +1,17 @@
+Clean the Supabase Database
+Django won't run "Create Table" if the tables already exist. We need to drop them.
+
+Go to your Supabase Dashboard.
+
+Open the SQL Editor.
+
+Paste and run this command to wipe the current Django tables:
+
+SQL
+-- This drops the tables and their relationships
+DROP TABLE IF EXISTS api_note CASCADE;
+DROP TABLE IF EXISTS api_user CASCADE;
+DROP TABLE IF EXISTS api_user_groups CASCADE;
+DROP TABLE IF EXISTS api_user_user_permissions CASCADE;
+-- This clears the migration history log
+DELETE FROM django_migrations WHERE app = 'api';
