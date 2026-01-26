@@ -1,85 +1,80 @@
-import React, { useState } from 'react';
-import { MessageSquare, FileText, Calendar, Video } from 'lucide-react';
-import { ChatView } from './views/ChatView';
-import { NotesView } from './views/NotesView'; // Our newly integrated view
-import { TimelineView } from './views/TimelineView';
-import { Group } from './types';
+import React from 'react';
+import { Hash, Users, Plus, Settings } from 'lucide-react';
+import '../../../styles/GroupTabs.css';
 
-interface GroupTabsProps {
-  selectedGroup: Group;
-  setShowVideo: (show: boolean) => void;
+interface Group {
+  id: number;
+  name: string;
+  // You can add more fields like 'is_private' or 'member_count' if needed
 }
 
-export const GroupTabs = ({ selectedGroup, setShowVideo }: GroupTabsProps) => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'timeline'>(
-    'chat'
-  );
+interface GroupTabsProps {
+  groups: Group[];
+  selectedGroupId: number | null;
+  onSelectGroup: (groupId: number) => void;
+  onOpenModal: () => void; // Added prop to trigger the modal
+}
 
+export const GroupTabs = ({
+  groups,
+  selectedGroupId,
+  onSelectGroup,
+  onOpenModal,
+}: GroupTabsProps) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#E2E8F0] overflow-hidden">
-      {/* Header with Group Info */}
-      <div className="p-4 border-b border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#F8FAFC]">
-        <div>
-          <h3 className="text-xl font-bold text-[#1E293B]">
-            {selectedGroup.name}
-          </h3>
-          <p className="text-sm text-[#64748B]">{selectedGroup.course}</p>
+    <div className="tabs-container">
+      <div className="tabs-header">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 p-1.5 rounded-lg">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight">
+            Workspace
+          </h1>
         </div>
-        <button
-          onClick={() => setShowVideo(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#10B981] text-white rounded-lg font-semibold hover:bg-[#059669] transition-colors"
-        >
-          <Video className="w-4 h-4" />
-          Join Video Call
+        <Settings className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
+      </div>
+
+      <div className="p-4">
+        <button onClick={onOpenModal} className="new-group-btn group">
+          <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+          <span>New Group</span>
         </button>
       </div>
 
-      {/* Navigation */}
-      <div className="flex border-b border-[#E2E8F0] px-2 bg-white">
-        <TabButton
-          active={activeTab === 'chat'}
-          onClick={() => setActiveTab('chat')}
-          icon={<MessageSquare className="w-4 h-4" />}
-          label="Discussion"
-        />
-        <TabButton
-          active={activeTab === 'notes'}
-          onClick={() => setActiveTab('notes')}
-          icon={<FileText className="w-4 h-4" />}
-          label="Task Notes"
-        />
-        <TabButton
-          active={activeTab === 'timeline'}
-          onClick={() => setActiveTab('timeline')}
-          icon={<Calendar className="w-4 h-4" />}
-          label="Timeline"
-        />
-      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
+        <div className="flex items-center justify-between px-3 mb-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Channels
+          </p>
+          <span className="text-[10px] font-bold text-slate-300 bg-slate-100 px-1.5 py-0.5 rounded">
+            {groups.length}
+          </span>
+        </div>
 
-      {/* Content Area - Now passing selectedGroup to views */}
-      <div className="p-6">
-        {activeTab === 'chat' && <ChatView selectedGroup={selectedGroup} />}
-        {activeTab === 'notes' && <NotesView selectedGroup={selectedGroup} />}
-        {activeTab === 'timeline' && (
-          <TimelineView selectedGroup={selectedGroup} />
-        )}
+        <div className="space-y-1">
+          {groups.map((group) => {
+            const isActive = selectedGroupId === group.id;
+            return (
+              <button
+                key={group.id}
+                onClick={() => onSelectGroup(group.id)}
+                className={`group-item ${isActive ? 'active' : 'inactive'}`}
+              >
+                <Hash
+                  className={`w-4 h-4 ${isActive ? 'text-white/80' : 'text-slate-400'}`}
+                />
+                <span
+                  className={`text-sm truncate ${isActive ? 'font-bold' : 'font-medium'}`}
+                >
+                  {group.name}
+                </span>
+                {isActive && <div className="status-dot" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 };
-
-// Simple internal component for cleaner tab buttons
-const TabButton = ({ active, onClick, icon, label }: any) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-all relative ${
-      active ? 'text-[#2563EB]' : 'text-[#64748B] hover:text-[#1E293B]'
-    }`}
-  >
-    {icon}
-    {label}
-    {active && (
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563EB]" />
-    )}
-  </button>
-);

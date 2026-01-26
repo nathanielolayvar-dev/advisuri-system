@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Clock, Trash2, Plus } from 'lucide-react';
+import { FileText, Clock, Trash2, Plus, Search, User } from 'lucide-react';
+import '../../../styles/NotesView.css';
 import api from '../../../api';
 import { Task, TaskNote, Group } from '../../../shared/types';
 import { getStatusColor } from '../../../shared/utils';
 
 interface NotesViewProps {
-  selectedGroup: Group;
+  groupId: number;
 }
 
-export const NotesView = ({ selectedGroup }: NotesViewProps) => {
+export const NotesView = ({ groupId }: NotesViewProps) => {
   const [notes, setNotes] = useState<TaskNote[]>([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -16,18 +17,18 @@ export const NotesView = ({ selectedGroup }: NotesViewProps) => {
 
   // Re-fetch notes whenever the selected group changes
   useEffect(() => {
-    if (selectedGroup?.id) {
+    if (groupId) {
       fetchGroupNotes();
     }
-  }, [selectedGroup?.id]); // This "dependency" tells React: "Run this whenever the ID changes"
+  }, [groupId]); // This "dependency" tells React: "Run this whenever the ID changes"
 
   const fetchGroupNotes = () => {
     setLoading(true);
     // Modified to fetch group-specific notes if your API supports it
-    // Example: api.get<TaskNote[]>(`/api/notes/?group=${selectedGroup.id}`)
+    // Example: api.get<TaskNote[]>(`/api/notes/?group=${groupId}`)
     // We append the group ID to the URL so the Django 'get_queryset' can find it
     api
-      .get<TaskNote[]>(`/api/notes/?group=${selectedGroup.id}`)
+      .get<TaskNote[]>(`/api/notes/?group=${groupId}`)
       .then((res) => setNotes(res.data))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -35,22 +36,20 @@ export const NotesView = ({ selectedGroup }: NotesViewProps) => {
 
   const handleCreateNote = (e: React.FormEvent) => {
     e.preventDefault();
-    // Safety check: Don't try to send a request if no group is active
-    if (!selectedGroup?.id) {
-      alert('Please select a group first!');
-      return;
-    }
+    if (!groupId) return;
+
     api
-      .post('/api/notes/', {
+      .post<TaskNote>('/api/notes/', {
         title,
         content,
-        group: selectedGroup.id, // <--- This matches 'group_id' in Django
+        group: groupId,
       })
       .then((res) => {
         if (res.status === 201) {
           setTitle('');
           setContent('');
-          fetchGroupNotes();
+          // Update state locally so the new note appears instantly
+          setNotes((prevNotes) => [res.data, ...prevNotes]);
         }
       })
       .catch((err) => alert('Error creating note: ' + err));
@@ -66,71 +65,51 @@ export const NotesView = ({ selectedGroup }: NotesViewProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Create Note Form (integrated from your Home.jsx) */}
-      <form
-        onSubmit={handleCreateNote}
-        className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-3"
-      >
-        <h5 className="text-sm font-bold text-[#1E293B]">Quick Add Note</h5>
-        <input
-          required
-          className="w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]"
-          placeholder="Note Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <textarea
-          required
-          className="w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-[#2563EB]"
-          placeholder="Share progress or details..."
-          rows={2}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="w-full py-2 bg-[#2563EB] text-white rounded-lg text-sm font-bold hover:bg-[#1D4ED8] transition-colors"
-        >
-          Add to {selectedGroup.name}
+    <div className="notes-container">
+      {/* Search and Action Bar */}
+      <div className="flex justify-between items-center mb-8">
+        <div className="relative w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search notes..."
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+        </div>
+        <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm">
+          <Plus className="w-4 h-4" /> New Note
         </button>
-      </form>
+      </div>
 
-      {/* Notes List (integrated from your NoteComponent) */}
-      <div className="space-y-4">
-        {loading ? (
-          <p className="text-center text-sm text-[#94A3B8]">Loading notes...</p>
-        ) : notes.length > 0 ? (
-          notes.map((note) => (
-            <div
-              key={note.id}
-              className="p-4 border border-[#E2E8F0] rounded-xl bg-white hover:shadow-sm transition-all group"
-            >
-              <div className="flex justify-between items-start">
-                <h5 className="font-bold text-[#1E293B]">{note.title}</h5>
-                <button
-                  onClick={() => handleDeleteNote(note.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-[#94A3B8] hover:text-red-500 hover:bg-red-50 transition-all rounded"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="notes-grid">
+          {notes.map((note) => (
+            <div key={note.id} className="note-card">
+              <div className="note-header">
+                <h3 className="note-title">{note.title}</h3>
+                <FileText className="w-4 h-4 text-slate-300" />
               </div>
-              <p className="text-[#64748B] text-sm mt-1">{note.content}</p>
-              <div className="flex items-center gap-2 mt-4 text-[10px] text-[#94A3B8] font-medium uppercase tracking-wider">
-                <Clock className="w-3 h-3" />
-                {new Date(note.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+
+              <p className="note-content">{note.content}</p>
+
+              <div className="note-footer">
+                <div className="note-meta">
+                  <User className="w-3 h-3" />
+                  <span>{note.author_name}</span>
+                </div>
+                <div className="note-meta">
+                  <Clock className="w-3 h-3" />
+                  <span>{new Date(note.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-10 border-2 border-dashed rounded-xl">
-            <p className="text-[#94A3B8] text-sm">
-              No notes found for this group.
-            </p>
+          ))}
+        </div>
+
+        {notes.length === 0 && !loading && (
+          <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <FileText className="w-8 h-8 opacity-20" />
+            <p className="text-sm italic">No notes found for this group.</p>
           </div>
         )}
       </div>
