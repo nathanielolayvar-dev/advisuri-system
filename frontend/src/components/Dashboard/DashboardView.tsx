@@ -1,25 +1,38 @@
+// This is the layout/presentation layer
+
 import { useState, useMemo, useEffect } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../api'; // Adjust path to your api.js/ts file
 
-// 1. Component Imports
-import { TaskCard } from './TaskCard';
-import { GanttChart } from './GanttChart';
-import { AnnouncementsSidebar } from './AnnouncementsSidebar';
-import { TaskModal } from './TaskModal';
+// Import Types
+import { Task, Announcement, GanttItem, DashboardProps } from './types';
 
-type SortOrder = 'high-to-low' | 'low-to-high' | 'date-asc' | 'date-desc';
+// Import Utilities
+import {
+  SortOrder,
+  priorityValues,
+  getPriorityColor,
+  getStatusColor,
+  getAvatarColor,
+  sortTasks,
+} from './utility/utils';
+
+//Component Imports
+import { TaskCard } from './ui/TaskCard';
+import { GanttChart } from './ui/GanttChart';
+import { AnnouncementsSidebar } from './ui/AnnouncementsSidebar';
+import { TaskModal } from './ui/TaskModal';
 
 export default function DashboardView() {
   // State for Database Data
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [sortOrder, setSortOrder] = useState<SortOrder>('high-to-low');
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
-  //Fetch Data from Djano API
+  //Fetch Data from Django API
   useEffect(() => {
     async function fetchDashboardData() {
       setLoading(true);
@@ -45,53 +58,37 @@ export default function DashboardView() {
     fetchDashboardData();
   }, []);
 
-  // Helper Functions for Styling (Remain same)
-  const getPriorityColor = (priority: string) => {
-    const colors: Record<string, string> = {
-      high: 'bg-[#FEF2F2] text-[#DC2626] border-[#FEE2E2]',
-      medium: 'bg-[#FFFBEB] text-[#F59E0B] border-[#FEF3C7]',
-      low: 'bg-[#F0FDF4] text-[#10B981] border-[#D1FAE5]',
-    };
-    return colors[priority] || 'bg-[#F8FAFC] text-[#64748B] border-[#E2E8F0]';
-  };
+  const sortedTasks = useMemo(
+    () => sortTasks(tasks as Task[], sortOrder),
+    [tasks, sortOrder]
+  );
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'in-progress': 'bg-[#DBEAFE] text-[#2563EB]',
-      pending: 'bg-[#F1F5F9] text-[#64748B]',
-      completed: 'bg-[#D1FAE5] text-[#10B981]',
-    };
-    return colors[status] || 'bg-[#F1F5F9] text-[#64748B]';
-  };
+  const ganttItems = useMemo(() => {
+    if (!tasks.length) return [] as GanttItem[];
 
-  // 3. Sorting Logic (Updated to use live tasks state)
-  const sortedTasks = useMemo(() => {
-    const priorityValues = { high: 3, medium: 2, low: 1 };
-    return [...tasks].sort((a, b) => {
-      if (sortOrder === 'high-to-low')
-        return (
-          (priorityValues[b.priority as keyof typeof priorityValues] || 0) -
-          (priorityValues[a.priority as keyof typeof priorityValues] || 0)
-        );
-      if (sortOrder === 'low-to-high')
-        return (
-          (priorityValues[a.priority as keyof typeof priorityValues] || 0) -
-          (priorityValues[b.priority as keyof typeof priorityValues] || 0)
-        );
-      if (sortOrder === 'date-asc')
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+    const dates = tasks.map((t) => new Date(t.dueDate).getTime());
+    const minDay = Math.min(...dates);
+
+    return tasks.map((t, idx) => {
+      const startDay = Math.max(
+        1,
+        Math.round(
+          (new Date(t.dueDate).getTime() - minDay) / (1000 * 60 * 60 * 24)
+        ) + 1
+      );
+      const duration = 1; // or derive from task details
+      const progress = t.status === 'completed' ? 100 : 0;
+      const color = getAvatarColor(idx);
+
+      return {
+        task: t.title,
+        startDay,
+        duration,
+        progress,
+        color,
+      } as GanttItem;
     });
-  }, [sortOrder, tasks]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-        <p className="text-slate-500 font-medium">Fetching your dashboard...</p>
-      </div>
-    );
-  }
+  }, [tasks]);
 
   return (
     <div className="space-y-6">
@@ -132,7 +129,9 @@ export default function DashboardView() {
             </div>
 
             <div className="p-5 space-y-4">
-              {sortedTasks.length === 0 ? (
+              {loading ? (
+                <Loader2 />
+              ) : sortedTasks.length === 0 ? (
                 <p className="text-center text-slate-400 py-10">
                   No tasks found in the database.
                 </p>
@@ -151,7 +150,7 @@ export default function DashboardView() {
           </section>
 
           {/* Timeline Section */}
-          <GanttChart data={tasks} totalDays={30} />
+          <GanttChart data={ganttItems} totalDays={30} />
         </div>
 
         <aside className="lg:col-span-1">
@@ -159,14 +158,14 @@ export default function DashboardView() {
         </aside>
       </div>
 
-      {selectedTask && (
+      {selectedTask ? (
         <TaskModal
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
           getPriorityColor={getPriorityColor}
           getStatusColor={getStatusColor}
         />
-      )}
+      ) : null}
     </div>
   );
 }

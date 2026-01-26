@@ -1,14 +1,5 @@
 import { Calendar } from 'lucide-react';
-
-interface Task {
-  id: number;
-  title: string;
-  course: string;
-  dueDate: string;
-  priority: string;
-  status: string;
-  description: string;
-}
+import type { Task } from '../types';
 
 interface TaskCardProps {
   task: Task;
