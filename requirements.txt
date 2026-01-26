@@ -21,9 +21,11 @@ axios
 jwt-decode
 react-router-dom
 
-backend google auth (pip install):
+google auth (pip install):
 django-allauth
 google-auth
+google-auth-oauthlib
+google-auth-httplib2
 requests
 
 frontend google auth:

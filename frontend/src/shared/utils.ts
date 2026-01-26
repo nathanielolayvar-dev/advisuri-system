@@ -1,4 +1,4 @@
-import { Task } from '../types';
+import { Task } from './types';
 
 /**
  * We define the SortOrder as a type so we can reuse it

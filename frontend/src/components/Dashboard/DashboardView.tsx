@@ -5,7 +5,12 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import api from '../../api'; // Adjust path to your api.js/ts file
 
 // Import Types
-import { Task, Announcement, GanttItem, DashboardProps } from './types';
+import {
+  Task,
+  Announcement,
+  GanttItem,
+  DashboardProps,
+} from '../../shared/types';
 
 // Import Utilities
 import {

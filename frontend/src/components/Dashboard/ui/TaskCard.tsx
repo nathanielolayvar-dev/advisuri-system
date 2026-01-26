@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react';
-import type { Task } from '../types';
+import type { Task } from '../../../shared/types';
 
 interface TaskCardProps {
   task: Task;

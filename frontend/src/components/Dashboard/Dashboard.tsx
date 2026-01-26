@@ -1,7 +1,7 @@
 //This is the main container/entry point
 
 import { useState } from 'react';
-import type { Task, DashboardProps } from './types';
+import type { Task, DashboardProps } from '../../shared/types';
 
 // Import from ui pieces
 import { TaskModal } from './ui/TaskModal';
