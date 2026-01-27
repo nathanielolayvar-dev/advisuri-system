@@ -37,6 +37,14 @@ function App(): React.JSX.Element {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/groups"
+          element={
+            <ProtectedRoute>
+              <GroupPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<RegisterAndLogout />} />

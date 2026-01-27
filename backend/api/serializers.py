@@ -1,9 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from datetime import date
-from .models import Note
-from .models import Task
-from .models import Message
+from .models import TaskNote, Task, User, Group, Message
 
 #ORM Object Relational Mapping (accepts JSON data)
 class UserSerializer(serializers.ModelSerializer):
@@ -16,6 +14,11 @@ class UserSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         return user
     
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group  # Ensure 'Group' is imported from .models at the top!
+        fields = "__all__"
+    
 class NoteSerializer(serializers.ModelSerializer):
     # This field pulls the username instead of just the ID for the UI
     author_name = serializers.ReadOnlyField(source='author.username')
@@ -26,7 +29,7 @@ class NoteSerializer(serializers.ModelSerializer):
     #    super(NoteSerializer, self).__init__(*args, **kwargs)
 
     class Meta:
-        model = Note
+        model = TaskNote
         fields = ["id", "title", "content", "created_at", "author", "author_name", "group"]
         extra_kwargs = {"author": {"read_only": True}}
 

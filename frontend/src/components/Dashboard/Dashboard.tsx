@@ -16,7 +16,7 @@ import {
   getPriorityColor,
   getStatusColor,
   sortTasks,
-} from './utility/utils';
+} from '../../shared/utils';
 
 // Shape of your dynamic data
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Plus, Check, Hash } from 'lucide-react';
-import '../../../styles/GroupModal.css';
+import '../../styles/GroupModal.css';
 import api from '../../api';
 
 interface GroupModalProps {

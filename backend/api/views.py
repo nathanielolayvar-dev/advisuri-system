@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 #models import
-from .models import User, Note, Task, Message, Group
+from .models import User, TaskNote, Task, Message, Group
 
 #serializers import
 from .serializers import UserSerializer, NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer
@@ -108,10 +108,10 @@ class NoteListCreate(generics.ListCreateAPIView):
         # 3. Filter notes by the group ID AND ensure the user is the author
         # (Or you can allow any group member to see it if you have a group membership model)
         if group_id:
-            return Note.objects.filter(author=user, group_id=group_id)
+            return TaskNote.objects.filter(author=user, group_id=group_id)
         
         # 4. Fallback: if no group is specified, just show all the user's notes
-        return Note.objects.filter(author=user)
+        return TaskNote.objects.filter(author=user)
 
     def perform_create(self, serializer):
         # We grab the group ID sent from the React 'api.post' call
@@ -125,7 +125,7 @@ class NoteDelete(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Note.objects.filter(author=self.request.user)
+        return TaskNote.objects.filter(author=self.request.user)
 
 class CreateUserView(generics.CreateAPIView):
     # Fix: User is now the custom api.User model defined at the top

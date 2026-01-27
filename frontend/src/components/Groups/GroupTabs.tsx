@@ -1,6 +1,6 @@
 import React from 'react';
 import { Hash, Users, Plus, Settings } from 'lucide-react';
-import '../../../styles/GroupTabs.css';
+import '../../styles/GroupTabs.css';
 
 interface Group {
   id: number;

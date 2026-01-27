@@ -86,3 +86,17 @@
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
+
+/* Add this to your GroupModal.css */
+.relative .modal-input {
+  padding-left: 2.5rem !important; /* This pushes the text/cursor to the right of the icon */
+}
+
+/* Ensure the icon is positioned correctly inside the wrapper */
+.relative .absolute {
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  pointer-events: none; /* Allows you to click "through" the icon to focus the input */
+}

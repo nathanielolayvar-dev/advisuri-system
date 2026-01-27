@@ -20,7 +20,7 @@ import {
   getStatusColor,
   getAvatarColor,
   sortTasks,
-} from './utility/utils';
+} from '../../shared/utils';
 
 //Component Imports
 import { TaskCard } from './ui/TaskCard';

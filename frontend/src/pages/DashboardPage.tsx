@@ -86,7 +86,9 @@ export default function DashboardPage() {
             <NavItem
               icon={<Users size={22} />}
               label="Groups"
+              active // Keeps it highlighted on this page
               isPinned={isPinned}
+              onClick={() => navigate('/groups')} // Redirects to Groups
             />
 
             {/* --- The Divider Line --- */}
