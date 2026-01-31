@@ -25,6 +25,7 @@ function Form({ route, method }: FormProps) {
 
   const name = method === 'login' ? 'Login' : 'Register';
 
+  //Normal Login method
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -40,7 +41,7 @@ function Form({ route, method }: FormProps) {
         // This grabs the 'teacher' or 'student' role from your Django response
         localStorage.setItem('user_role', (res.data as any).role);
 
-        navigate('/');
+        navigate('/dashboard');
       } else {
         navigate('/login');
       }
@@ -55,6 +56,7 @@ function Form({ route, method }: FormProps) {
     }
   };
 
+  //Google Login method
   const handleGoogleSuccess = async (
     credentialResponse: CredentialResponse
   ) => {
@@ -69,7 +71,7 @@ function Form({ route, method }: FormProps) {
       localStorage.setItem(ACCESS_TOKEN, res.data.access);
       localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
 
-      navigate('/');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Google Login Failed', error);
       alert('Failed to login with Google. Please try again.');

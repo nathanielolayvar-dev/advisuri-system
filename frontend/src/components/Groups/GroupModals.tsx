@@ -49,16 +49,15 @@ export const GroupModal = ({
     e.preventDefault();
     if (!groupName.trim()) return;
 
-    setLoading(true); // Fixed the 'True' typo
+    setLoading(true);
     try {
-      // Send both the name and the array of member IDs
       const response = await api.post('/api/groups/', {
         name: groupName,
-        member_ids: selectedMemberIds,
+        members: [], // Send an empty list; the backend now accepts this
       });
       onGroupCreated(response.data);
-      setGroupName('');
-      setSelectedMemberIds([]);
+      //setGroupName('');
+      //setSelectedMemberIds([]);
       onClose();
     } catch (err) {
       console.error('Failed to create group:', err);

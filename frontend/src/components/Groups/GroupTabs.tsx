@@ -1,11 +1,12 @@
 import React from 'react';
 import { Hash, Users, Plus, Settings } from 'lucide-react';
+import { UserSearchDropdown } from './UserSearchDropdown';
 import '../../styles/GroupTabs.css';
 
 interface Group {
   id: number;
   name: string;
-  // You can add more fields like 'is_private' or 'member_count' if needed
+  members: number[];
 }
 
 interface GroupTabsProps {
@@ -13,6 +14,7 @@ interface GroupTabsProps {
   selectedGroupId: number | null;
   onSelectGroup: (groupId: number) => void;
   onOpenModal: () => void; // Added prop to trigger the modal
+  onMemberAdded: () => void; // Callback
 }
 
 export const GroupTabs = ({
@@ -20,7 +22,10 @@ export const GroupTabs = ({
   selectedGroupId,
   onSelectGroup,
   onOpenModal,
+  onMemberAdded,
 }: GroupTabsProps) => {
+  const activeGroup = groups.find((group) => group.id === selectedGroupId);
+
   return (
     <div className="tabs-container">
       <div className="tabs-header">
@@ -35,11 +40,25 @@ export const GroupTabs = ({
         <Settings className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
       </div>
 
-      <div className="p-4">
-        <button onClick={onOpenModal} className="new-group-btn group">
+      <div className="p-4 space-y-4">
+        <button onClick={onOpenModal} className="new-group-btn group w-full">
           <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
           <span>New Group</span>
         </button>
+
+        {/* INTEGRATION: Member Search */}
+        {selectedGroupId && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+              Add Member to #{activeGroup?.name}
+            </p>
+            <UserSearchDropdown
+              groupId={selectedGroupId}
+              currentMembers={activeGroup?.members || []}
+              onMemberAdded={onMemberAdded}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">

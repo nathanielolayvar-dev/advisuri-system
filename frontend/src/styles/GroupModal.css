@@ -73,13 +73,15 @@
 }
 
 .modal-input {
-  padding: 0.75rem 1rem;
+  width: 100%;
+  /* 2.75rem pushes the text exactly past the Lucide icon */
+  padding: 0.75rem 1rem 0.75rem 2.75rem !important;
   background-color: white;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   font-size: 0.875rem;
-  transition: all 0.2s;
   outline: none;
+  transition: border-color 0.2s;
 }
 
 .modal-input:focus {
@@ -92,11 +94,11 @@
   padding-left: 2.5rem !important; /* This pushes the text/cursor to the right of the icon */
 }
 
-/* Ensure the icon is positioned correctly inside the wrapper */
+/* Position the icon absolutely inside that padding space */
 .relative .absolute {
-  left: 0.75rem;
-  display: flex;
-  align-items: center;
-  height: 100%;
-  pointer-events: none; /* Allows you to click "through" the icon to focus the input */
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none; /* Allows user to click "through" the icon to the input */
+  color: #94a3b8;
 }

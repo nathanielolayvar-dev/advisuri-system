@@ -16,8 +16,12 @@ class UserSerializer(serializers.ModelSerializer):
     
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Group  # Ensure 'Group' is imported from .models at the top!
+        model = Group
         fields = "__all__"
+        # This allows you to create a group with an empty list
+        extra_kwargs = {
+            'members': {'required': False, 'allow_empty': True}
+        }
     
 class NoteSerializer(serializers.ModelSerializer):
     # This field pulls the username instead of just the ID for the UI

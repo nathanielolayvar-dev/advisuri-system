@@ -29,7 +29,7 @@ function App(): React.JSX.Element {
     <BrowserRouter>
       <Routes>
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               {/* Home is protected; requires a valid access token */}

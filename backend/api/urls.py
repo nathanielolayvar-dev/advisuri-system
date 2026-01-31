@@ -1,12 +1,13 @@
 from django.urls import path, include
 from . import views
 from rest_framework.routers import DefaultRouter
-from .views import NoteListCreate, NoteDelete, CreateUserView, get_user_profile, google_auth, MessageViewSet #for the google authentication
+from .views import NoteListCreate, NoteDelete, CreateUserView, get_user_profile, google_auth, MessageViewSet, GroupViewSet #for the google authentication
 
 #Initialize the router
 router = DefaultRouter()
-#Register the messages endpoint
+#Register the endpoints
 router.register(r'messages', MessageViewSet, basename='message')
+router.register(r'groups', GroupViewSet)
 
 urlpatterns = [
     path("notes/", views.NoteListCreate.as_view(), name="note-list"),

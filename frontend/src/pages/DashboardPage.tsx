@@ -75,8 +75,8 @@ export default function DashboardPage() {
             <NavItem
               icon={<LayoutDashboard size={24} />}
               label="Dashboard"
-              active
               isPinned={isPinned}
+              onClick={() => navigate('/dashboard')}
             />
             <NavItem
               icon={<BookOpen size={22} />}
