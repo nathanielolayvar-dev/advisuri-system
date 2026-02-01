@@ -1,2 +1,41 @@
+# .gitignore
+
+### --- Environment & Secrets ---
+.env
+*.env
+.venv/
+venv/
 env/
+
+### --- Python / Django ---
+__pycache__/
+*.py[cod]
+*$py.class
 db.sqlite3
+db.sqlite3-journal
+media/
+static/
+staticfiles/
+
+### --- Node / React ---
+node_modules/
+dist/
+build/
+.eslintcache
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+### --- Docker ---
+.dockerignore
+# Optional: Ignore data folders if you mount DB volumes locally
+pgdata/
+
+### --- Operating System & IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.bak

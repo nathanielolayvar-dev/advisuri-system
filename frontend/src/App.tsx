@@ -28,6 +28,8 @@ function App(): React.JSX.Element {
   return (
     <BrowserRouter>
       <Routes>
+        {/* default landing page is set to dashboard*/}
+        <Route path="/" element={<Navigate to="/groups"/>} />
         <Route
           path="/dashboard"
           element={
