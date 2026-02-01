@@ -15,10 +15,13 @@ class UserSerializer(serializers.ModelSerializer):
         return user
     
 class GroupSerializer(serializers.ModelSerializer):
+    # This will display the string representation of each user in the members list
+    members = serializers.StringRelatedField(many=True)
     class Meta:
         model = Group
         fields = "__all__"
         # This allows you to create a group with an empty list
+        depth = 1  # This tells DRF to go one level deep into relationships
         extra_kwargs = {
             'members': {'required': False, 'allow_empty': True}
         }
