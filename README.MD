@@ -106,8 +106,6 @@ Ctrl + Shift + P → TypeScript: Restart TS Server
 ### Frontend
 - React (Vite)
 - TypeScript
-- Tailwind CSS
-- Radix UI
 
 ### Backend
 - Django REST Framework
