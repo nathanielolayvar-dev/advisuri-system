@@ -109,8 +109,7 @@ Ctrl + Shift + P → TypeScript: Restart TS Server
 
 ### Backend
 - Django REST Framework
-- SimpleJWT (Authentication)
-- PostgreSQL
+- Supabase
 
 ### Infrastructure
 - Docker
