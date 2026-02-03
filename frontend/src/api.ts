@@ -1,20 +1,29 @@
 import axios from 'axios';
-import { ACCESS_TOKEN } from './constants';
+import { createClient } from '@supabase/supabase-js';
 
+// 1. Initialize Supabase Client
+// Ensure these variables are in your .env file
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 2. Create Axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // imports anything specified in environment file
+  baseURL: import.meta.env.VITE_API_URL, 
 });
 
+// 3. Update Interceptor to use Supabase Session
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem(ACCESS_TOKEN);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`; //how to pass JWT access token
+  async (config) => {
+    // Get the session from Supabase SDK (more reliable than manual localStorage)
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-//now uses this object to send different requests
 export default api;

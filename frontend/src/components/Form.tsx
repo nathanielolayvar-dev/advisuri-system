@@ -1,82 +1,71 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
-import api from '../api';
 import { useNavigate } from 'react-router-dom';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants';
+import { supabase } from '../api'; // Import from api.ts to ensure shared instance
+import { ACCESS_TOKEN } from '../constants';
 import '../styles/form.css';
 import LoadingIndicator from './LoadingIndicator';
-import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
-
-// 1. Define the shape of your backend API response
-interface AuthResponse {
-  access: string;
-  refresh: string;
-}
 
 interface FormProps {
-  route: string;
   method: 'login' | 'register';
 }
 
-function Form({ route, method }: FormProps) {
-  const [username, setUsername] = useState<string>('');
+function Form({ method }: FormProps) {
+  const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
   const name = method === 'login' ? 'Login' : 'Register';
 
-  //Normal Login method
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Pass the AuthResponse interface to the post request
-      const res = await api.post<AuthResponse>(route, { username, password });
-
       if (method === 'login') {
-        localStorage.setItem(ACCESS_TOKEN, res.data.access);
-        localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
 
-        // This grabs the 'teacher' or 'student' role from your Django response
-        localStorage.setItem('user_role', (res.data as any).role);
-
-        navigate('/dashboard');
+        if (data.session) {
+          // Sync token to localStorage for our Axios interceptor
+          localStorage.setItem(ACCESS_TOKEN, data.session.access_token);
+          navigate('/dashboard');
+        }
       } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        
+        // Supabase sends a confirmation email by default
+        alert("Success! Please check your email for a verification link before logging in.");
         navigate('/login');
       }
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        alert(error.message);
-      } else {
-        alert('An unexpected error occurred');
-      }
+    } catch (error: any) {
+      alert(error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  //Google Login method
-  const handleGoogleSuccess = async (
-    credentialResponse: CredentialResponse
-  ) => {
-    if (!credentialResponse.credential) return;
-
-    setLoading(true);
+  const handleGoogleLogin = async () => {
     try {
-      const res = await api.post<AuthResponse>('/api/auth/google/', {
-        token: credentialResponse.credential,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // window.location.origin ensures it works on localhost or your live domain
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
       });
-
-      localStorage.setItem(ACCESS_TOKEN, res.data.access);
-      localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
-
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Google Login Failed', error);
-      alert('Failed to login with Google. Please try again.');
-    } finally {
-      setLoading(false);
+      if (error) throw error;
+    } catch (error: any) {
+      alert(error.message || 'Google Login failed');
     }
   };
 
@@ -85,28 +74,23 @@ function Form({ route, method }: FormProps) {
       <h1>{name}</h1>
       <input
         className="form-input"
-        type="text"
-        value={username}
-        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-          setUsername(e.target.value)
-        }
-        placeholder="Username"
+        type="email"
+        value={email}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+        placeholder="Email"
         required
       />
-
       <input
         className="form-input"
         type="password"
         value={password}
-        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-          setPassword(e.target.value)
-        }
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
         placeholder="Password"
         required
       />
 
       {loading && <LoadingIndicator />}
-
+      
       <button className="form-button" type="submit" disabled={loading}>
         {loading ? 'Processing...' : name}
       </button>
@@ -114,25 +98,30 @@ function Form({ route, method }: FormProps) {
       {method === 'login' && (
         <>
           <div className="social-divider">OR</div>
-          <div className="google-login-wrapper">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => alert('Google Login Failed')}
-              useOneTap
-            />
-          </div>
+          <button 
+            type="button" 
+            className="google-btn" 
+            onClick={handleGoogleLogin}
+            style={{ 
+              backgroundColor: '#fff', 
+              color: '#757575', 
+              border: '1px solid #ddd',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
+          >
+            Sign in with Google
+          </button>
         </>
       )}
 
       <div className="form-footer">
         {method === 'login' ? (
-          <p>
-            New here? <a href="/register">Create an account</a>
-          </p>
+          <p>New here? <a href="/register">Create an account</a></p>
         ) : (
-          <p>
-            Already have an account? <a href="/login">Login here</a>
-          </p>
+          <p>Already have an account? <a href="/login">Login here</a></p>
         )}
       </div>
     </form>

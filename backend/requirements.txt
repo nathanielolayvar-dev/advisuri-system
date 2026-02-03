@@ -3,6 +3,7 @@ django
 django-cors-headers
 djangorestframework 
 djangorestframework-simplejwt
+django-dotenv
 PyJWT
 pytz
 sqlparse
@@ -13,3 +14,4 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 requests
+gunicorn

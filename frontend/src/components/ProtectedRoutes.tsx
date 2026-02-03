@@ -1,56 +1,51 @@
-import {Navigate} from "react-router-dom"
-import {jwtDecode} from "jwt-decode"
-import api from "../api";
-import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"
-import { useState, useEffect } from "react"
+import { Navigate } from "react-router-dom";
+import { useState, useEffect, ReactNode } from "react";
+import { supabase } from "../supabaseClient"; 
+import { ACCESS_TOKEN } from "../constants";
 
-function ProtectedRoute({children}) {
-    const [isAuthorized, setIsAuthorized] = useState(null)
-
-    useEffect(() => {
-        auth ().catch(() => setIsAuthorized(false)) //call auth function
-    }, [])
-
-    const  refreshToken = async () => { //refresh access token immediately
-        const refreshToken = localStorage.getItem(REFRESH_TOKEN)
-        try{
-            const res = await api.post("/api/token/refresh/", { 
-                refresh: refreshToken,  //payload 
-            });//send request to backend with refresh token to get new access token
-            if (res.status === 200) { //if res 200, means success
-                localStorage.setItem(ACCESS_TOKEN, res.data.access) //set new access token in local storage
-                setIsAuthorized(true)
-            } else {
-                setIsAuthorized(false)
-            }
-        }catch (error){
-            console.log(error)
-            setIsAuthorized(false)
-        }
-
-    }
-
-    const auth = async () => { //check if token need to refresh or alllow to access
-        const token = localStorage.getItem(ACCESS_TOKEN)
-        if (!token) {
-            setIsAuthorized(false)
-            return
-        }
-        const decoded = jwtDecode(token)
-        const tokenExpiration = decoded.exp 
-        const now = Date.now() / 1000
-
-        if (tokenExpiration < now) {
-            await refreshToken()
-        } else {
-            setIsAuthorized(true) // if token is not yet expired, allow access
-        }
-        }
-
-    if (isAuthorized === null) {
-        return <div>Loading...</div>
-    }
-
-    return isAuthorized ? children : <Navigate to="/login" />//if true, reroute to login page
+interface ProtectedRouteProps {
+  children: ReactNode;
 }
+
+function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      // 1. Get the current session from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // 2. Keep localStorage in sync for your Axios interceptor (api.ts)
+        localStorage.setItem(ACCESS_TOKEN, session.access_token);
+        setIsAuthorized(true);
+      } else {
+        localStorage.removeItem(ACCESS_TOKEN);
+        setIsAuthorized(false);
+      }
+    };
+
+    checkAuth();
+
+    // 3. Listen for auth state changes (like automatic token refreshes or logouts)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        localStorage.setItem(ACCESS_TOKEN, session.access_token);
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (isAuthorized === null) {
+    return <div>Loading...</div>;
+  }
+
+  // If authorized, show the page; otherwise, kick them to login
+  return isAuthorized ? <>{children}</> : <Navigate to="/login" />;
+}
+
 export default ProtectedRoute;

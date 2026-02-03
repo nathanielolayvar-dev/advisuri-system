@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy dependency files first for caching
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 
 # Copy source code

@@ -25,19 +25,12 @@ urlpatterns = [
 from django.contrib import admin
 from django.urls import path, include
 
-from api.views import CreateUserView
-#Import from the library AND your local app
-from rest_framework_simplejwt.views import TokenRefreshView
-from api.views import MyTokenObtainPairView # This tells Django to look in your api folder
-
-#(routes)
 urlpatterns = [
     path("admin/", admin.site.urls),
+    
+    # This is the main bridge to your tasks logic
     path("api/", include('api.urls')),
-    path('api/user/register/', CreateUserView.as_view(), name="register"),
-    path("api/token/", MyTokenObtainPairView.as_view(), name="get_token"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    
+    # Standard DRF login (useful for the browsable API during testing)
     path("api-auth/", include("rest_framework.urls")),
-
-    path("api/", include("api.urls")), #if the urls are not from above, it wil redirect to url paths in api
 ]
