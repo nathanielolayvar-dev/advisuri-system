@@ -66,7 +66,7 @@ export default function GroupPage() {
             />
             <NavItem
               icon={<BookOpen size={22} />}
-              label="Modules"
+              label="Analytics"
               isPinned={isPinned}
             />
             <NavItem

@@ -80,7 +80,7 @@ export default function DashboardPage() {
             />
             <NavItem
               icon={<BookOpen size={22} />}
-              label="Modules"
+              label="Analytics"
               isPinned={isPinned}
             />
             <NavItem
