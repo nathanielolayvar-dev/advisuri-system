@@ -1,4 +1,5 @@
 import { Task } from './types';
+import { GroupAnalytics } from './types';
 
 /**
  * We define the SortOrder as a type so we can reuse it
@@ -69,4 +70,16 @@ export const sortTasks = (tasks: Task[], order: SortOrder): Task[] => {
       return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
     return 0;
   });
+};
+
+export const fetchGroupAnalytics = async (
+  groupId: number
+): Promise<GroupAnalytics> => {
+  const response = await fetch(`/api/groups/${groupId}/analytics/`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch analytics: ${response.statusText}`);
+  }
+
+  return await response.json();
 };

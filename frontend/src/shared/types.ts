@@ -104,3 +104,21 @@ export interface Document {
   file_size: string;
   file_type: DocumentType;
 }
+
+// src/components/analytics
+export interface GroupAnalytics {
+  // Descriptive
+  activityPulse: number; // 0-100 score
+  velocity: number; // tasks per week
+  contributionBalance: number; // 0-100 percentage
+
+  // Predictive
+  atRiskStatus: 'Low' | 'Medium' | 'High';
+  toneScore: 'Positive' | 'Neutral' | 'Negative';
+  workloadPressure: number; // predicted capacity
+
+  // Forecasting
+  forecastedCompletion: string;
+  milestoneBuffer: number; // days remaining
+  memberBandwidth: Array<{ userId: number; load: number }>;
+}
