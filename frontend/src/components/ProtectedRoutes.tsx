@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useState, useEffect, ReactNode } from "react";
-import { supabase } from "../supabaseClient"; 
-import { ACCESS_TOKEN } from "../constants";
+// IMPORTANT: Use the same supabase instance as your api.ts
+import { supabase } from "../api"; 
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -12,28 +12,21 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // 1. Get the current session from Supabase
+      // Get the session directly from the SDK
       const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        // 2. Keep localStorage in sync for your Axios interceptor (api.ts)
-        localStorage.setItem(ACCESS_TOKEN, session.access_token);
-        setIsAuthorized(true);
-      } else {
-        localStorage.removeItem(ACCESS_TOKEN);
-        setIsAuthorized(false);
-      }
+      setIsAuthorized(!!session);
     };
 
     checkAuth();
 
-    // 3. Listen for auth state changes (like automatic token refreshes or logouts)
+    // Listen for auth state changes (Login, Logout, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthorized(!!session);
+  
       if (session) {
-        localStorage.setItem(ACCESS_TOKEN, session.access_token);
-        setIsAuthorized(true);
+        localStorage.setItem("access", session.access_token);
       } else {
-        setIsAuthorized(false);
+        localStorage.removeItem("access");
       }
     });
 
@@ -41,10 +34,9 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, []);
 
   if (isAuthorized === null) {
-    return <div>Loading...</div>;
+    return <div>Loading...</div>; // Prevents "flickering" during redirect
   }
 
-  // If authorized, show the page; otherwise, kick them to login
   return isAuthorized ? <>{children}</> : <Navigate to="/login" />;
 }
 

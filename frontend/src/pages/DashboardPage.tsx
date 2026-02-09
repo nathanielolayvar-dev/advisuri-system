@@ -82,6 +82,7 @@ export default function DashboardPage() {
               icon={<BookOpen size={22} />}
               label="Analytics"
               isPinned={isPinned}
+              onClick={() => navigate('/analytics')}
             />
             <NavItem
               icon={<Users size={22} />}

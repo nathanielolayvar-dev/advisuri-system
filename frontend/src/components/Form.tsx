@@ -32,7 +32,7 @@ function Form({ method }: FormProps) {
 
         if (data.session) {
           // Sync token to localStorage for our Axios interceptor
-          localStorage.setItem(ACCESS_TOKEN, data.session.access_token);
+          // localStorage.setItem(ACCESS_TOKEN, data.session.access_token);
           navigate('/dashboard');
         }
       } else {

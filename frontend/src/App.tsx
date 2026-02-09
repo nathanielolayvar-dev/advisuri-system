@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -6,39 +6,47 @@ import DashboardPage from './pages/DashboardPage';
 import GroupPage from './pages/GroupPage';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoutes';
+import { ACCESS_TOKEN } from './constants';
+import { supabase } from './api';
+import Analytics from "./pages/AnalyticalPage"; 
 
-/**
- * Functional component for Logout.
- * TypeScript infers the return type as JSX.Element.
- */
 function Logout(): React.JSX.Element {
-  localStorage.clear(); // clear access and refresh token
-  return <Navigate to="/login" />; // redirect to login page
+  localStorage.clear();
+  return <Navigate to="/login" />;
 }
 
-/**
- * Functional component to ensure fresh registration by clearing local state.
- */
 function RegisterAndLogout(): React.JSX.Element {
   localStorage.clear();
   return <Register />;
 }
 
 function App(): React.JSX.Element {
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        localStorage.setItem(ACCESS_TOKEN, session.access_token);
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(ACCESS_TOKEN);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* default landing page is set to dashboard*/}
         <Route path="/" element={<Navigate to="/groups"/>} />
+        
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              {/* Home is protected; requires a valid access token */}
               <DashboardPage />
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/groups"
           element={
@@ -47,6 +55,16 @@ function App(): React.JSX.Element {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/login" element={<Login />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<RegisterAndLogout />} />
