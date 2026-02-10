@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NavItem } from '../components/Sidebar/NavItem';
@@ -20,25 +21,42 @@ const groupActivityData = [
   { name: 'Team Delta', messages: 112, notes: 22, logins: 78, status: 'high', color: '#10B981' },
   { name: 'Team Epsilon', messages: 3, notes: 0, logins: 5, status: 'ghost', color: '#DC2626' },
 ];
+=======
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { getGroupAnalytics } from '../services/analyticsService';
+import { AnalyticsView as AnalyticsDashboard } from '../components/Analytics/Analytics';
+import { GroupAnalytics } from '../shared/types';
+import { Loader2, AlertCircle, RefreshCcw } from 'lucide-react';
 
-const taskVelocityData = [
-  { group: 'Team Alpha', avgHours: 18, tasksCompleted: 24 },
-  { group: 'Team Beta', avgHours: 36, tasksCompleted: 15 },
-  { group: 'Team Gamma', avgHours: 72, tasksCompleted: 8 },
-  { group: 'Team Delta', avgHours: 24, tasksCompleted: 20 },
-  { group: 'Team Epsilon', avgHours: 120, tasksCompleted: 3 },
-];
+const AnalyticsPage = () => {
+  // 1. Get groupId from URL and convert to number
+  const { groupId } = useParams<{ groupId: string }>();
+  const id = Number(groupId);
+>>>>>>> Stashed changes
 
-const completionForecastData = [
-  { date: 'Week 1', actual: 15, forecast: 15 },
-  { date: 'Week 2', actual: 32, forecast: 30 },
-  { date: 'Week 3', actual: 48, forecast: 45 },
-  { date: 'Week 4', actual: 65, forecast: 62 },
-  { date: 'Week 5', actual: null, forecast: 78 },
-  { date: 'Week 6', actual: null, forecast: 92 },
-  { date: 'Week 7', actual: null, forecast: 100 },
-];
+  const [data, setData] = useState<GroupAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  const loadData = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getGroupAnalytics(id.toString());
+      setData(result);
+    } catch (err) {
+      setError(
+        "We couldn't reach the intelligence engine. Check your connection."
+      );
+      console.error('Analytics fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+<<<<<<< Updated upstream
 const atRiskGroups = [
   { name: 'Team Epsilon', risk: 'Critical', riskLevel: 95, issues: ['Zero activity for 8 days', '5 overdue tasks', 'No messages in 10 days'], color: '#DC2626' },
   { name: 'Team Gamma', risk: 'High', riskLevel: 72, issues: ['Low message frequency', '3 overdue tasks', 'Declining activity trend'], color: '#EF4444' },
@@ -284,6 +302,55 @@ export default function AnalyticsPage() {
       <button className="fixed bottom-8 right-8 w-14 h-14 bg-[#1E293B] text-white rounded-full flex items-center justify-center shadow-2xl hover:rotate-12 transition-all z-50">
         <HelpCircle size={28} />
       </button>
+=======
+  useEffect(() => {
+    loadData();
+  }, [groupId]);
+
+  // Loading State
+  if (loading) {
+    return (
+      <div className="flex flex-col h-[60vh] items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mb-4" />
+        <h3 className="text-lg font-semibold text-slate-800">
+          Processing Workspace Data
+        </h3>
+        <p className="text-slate-500 text-sm">
+          Our AI is calculating velocity and burnout risks...
+        </p>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error || !data) {
+    return (
+      <div className="m-8 p-10 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200">
+        <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+        </div>
+        <h2 className="text-slate-900 font-bold text-xl mb-2">
+          Analysis Interrupted
+        </h2>
+        <p className="text-slate-500 text-sm max-w-xs mx-auto mb-6">{error}</p>
+        <button
+          onClick={loadData}
+          className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors"
+        >
+          <RefreshCcw size={16} />
+          Retry Analysis
+        </button>
+      </div>
+    );
+  }
+
+  // Success State
+  return (
+    <div className="animate-in fade-in duration-500">
+      <AnalyticsDashboard groupId={id} />
+>>>>>>> Stashed changes
     </div>
   );
-}
+};
+
+export default AnalyticsPage;

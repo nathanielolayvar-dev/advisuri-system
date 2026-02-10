@@ -1,29 +1,28 @@
-.loading {
-  padding: 2rem;
-  color: #94a3b8;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
+/* Container & Layout */
 .container {
-  padding: 1.5rem;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  overflow-y: auto;
-  max-height: 100vh;
+  gap: 2rem;
+  max-width: 1300px;
+  margin: 0 auto;
+  background-color: #f8fafc; /* Subtle light background to make cards pop */
+  min-height: 100vh;
 }
 
 .title {
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.25rem;
 }
 
+/* AI Feature Grids */
 .gridThree {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .gridTwo {
@@ -32,49 +31,101 @@
   gap: 1.5rem;
 }
 
+/* Card Styling */
 .card {
   background-color: white;
-  padding: 1.5rem;
-  border-radius: 0.75rem;
+  padding: 1.75rem;
+  border-radius: 1rem;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.03),
+    0 2px 4px -2px rgb(0 0 0 / 0.03);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
 }
 
 .cardTitle {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  margin-bottom: 1rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+/* ML Progress Bars */
 .progressBarTrack {
   width: 100%;
   background-color: #f1f5f9;
-  height: 0.5rem;
+  height: 0.625rem;
   border-radius: 9999px;
   overflow: hidden;
+  margin-top: 0.5rem;
 }
 
 .progressBarFill {
   height: 100%;
+  border-radius: 9999px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth "growing" animation */
 }
 
-/* Media Queries for Responsiveness */
+/* Loading State & Spinner */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.loadingText {
+  color: #94a3b8;
+  font-weight: 500;
+  animation: pulse 2s infinite;
+}
+
+/* Responsiveness */
 @media (min-width: 768px) {
   .gridThree {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (min-width: 1024px) {
   .gridTwo {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
+/* Animations */
 @keyframes pulse {
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }

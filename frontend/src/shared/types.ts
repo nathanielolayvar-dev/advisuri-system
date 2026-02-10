@@ -106,19 +106,24 @@ export interface Document {
 }
 
 // src/components/analytics
+export interface MemberBandwidth {
+  name: string;
+  risk_score: number; // The percentage of burnout risk
+}
+
 export interface GroupAnalytics {
-  // Descriptive
-  activityPulse: number; // 0-100 score
-  velocity: number; // tasks per week
-  contributionBalance: number; // 0-100 percentage
+  // Descriptive Features
+  activity_pulse: number;
+  task_velocity: number;
+  contribution_balance: number;
 
-  // Predictive
-  atRiskStatus: 'Low' | 'Medium' | 'High';
-  toneScore: 'Positive' | 'Neutral' | 'Negative';
-  workloadPressure: number; // predicted capacity
+  // Predictive Features (ML-based)
+  at_risk_status: 'High' | 'Low' | 'Medium';
+  tone_analysis: string;
+  workload_prediction: number;
 
-  // Forecasting
-  forecastedCompletion: string;
-  milestoneBuffer: number; // days remaining
-  memberBandwidth: Array<{ userId: number; load: number }>;
+  // Forecasting Features
+  completion_forecast: string; // ISO Date string or "N/A"
+  milestone_buffer: number;
+  member_bandwidth: MemberBandwidth[];
 }
