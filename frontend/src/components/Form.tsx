@@ -6,6 +6,7 @@ import '../styles/form.css';
 import LoadingIndicator from './LoadingIndicator';
 
 interface FormProps {
+  route: string;
   method: 'login' | 'register';
 }
 
@@ -27,7 +28,7 @@ function Form({ method }: FormProps) {
           email,
           password,
         });
-        
+
         if (error) throw error;
 
         if (data.session) {
@@ -40,11 +41,13 @@ function Form({ method }: FormProps) {
           email,
           password,
         });
-        
+
         if (error) throw error;
-        
+
         // Supabase sends a confirmation email by default
-        alert("Success! Please check your email for a verification link before logging in.");
+        alert(
+          'Success! Please check your email for a verification link before logging in.'
+        );
         navigate('/login');
       }
     } catch (error: any) {
@@ -76,7 +79,9 @@ function Form({ method }: FormProps) {
         className="form-input"
         type="email"
         value={email}
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+          setEmail(e.target.value)
+        }
         placeholder="Email"
         required
       />
@@ -84,13 +89,15 @@ function Form({ method }: FormProps) {
         className="form-input"
         type="password"
         value={password}
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+          setPassword(e.target.value)
+        }
         placeholder="Password"
         required
       />
 
       {loading && <LoadingIndicator />}
-      
+
       <button className="form-button" type="submit" disabled={loading}>
         {loading ? 'Processing...' : name}
       </button>
@@ -98,18 +105,18 @@ function Form({ method }: FormProps) {
       {method === 'login' && (
         <>
           <div className="social-divider">OR</div>
-          <button 
-            type="button" 
-            className="google-btn" 
+          <button
+            type="button"
+            className="google-btn"
             onClick={handleGoogleLogin}
-            style={{ 
-              backgroundColor: '#fff', 
-              color: '#757575', 
+            style={{
+              backgroundColor: '#fff',
+              color: '#757575',
               border: '1px solid #ddd',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px'
+              gap: '10px',
             }}
           >
             Sign in with Google
@@ -119,9 +126,13 @@ function Form({ method }: FormProps) {
 
       <div className="form-footer">
         {method === 'login' ? (
-          <p>New here? <a href="/register">Create an account</a></p>
+          <p>
+            New here? <a href="/register">Create an account</a>
+          </p>
         ) : (
-          <p>Already have an account? <a href="/login">Login here</a></p>
+          <p>
+            Already have an account? <a href="/login">Login here</a>
+          </p>
         )}
       </div>
     </form>

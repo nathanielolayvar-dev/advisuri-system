@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GroupAnalytics } from '../../shared/types';
 import { StatCard } from './StatCard';
-import styles from './AnalyticsView.module.css'; // Import your new styles
+import '../../styles/Analytics.css'; // Import your new styles
 
 export const AnalyticsView = ({ groupId }: { groupId: number }) => {
   const [data, setData] = useState<GroupAnalytics | null>(null);
@@ -28,8 +28,8 @@ export const AnalyticsView = ({ groupId }: { groupId: number }) => {
 
   if (loading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.spinner}></div>
+      <div className="loadingContainer">
+        <div className="styles.spinner"></div>
         <p className="mt-4 text-slate-500 animate-pulse">
           Running Scikit-Learn Engines...
         </p>
@@ -46,16 +46,16 @@ export const AnalyticsView = ({ groupId }: { groupId: number }) => {
   }
 
   return (
-    <div className={styles.container}>
+    <div className="container">
       <header className="mb-8">
-        <h2 className={styles.title}>Workspace Intelligence</h2>
+        <h2 className="title">Workspace Intelligence</h2>
         <p className="text-slate-500 text-sm">
           Predictive insights based on task patterns and team activity.
         </p>
       </header>
 
       {/* Row 1: The "Big Three" ML Insights */}
-      <div className={styles.gridThree}>
+      <div className="gridThree">
         <StatCard
           title="Completion Forecast"
           value={data.completion_forecast}
@@ -81,10 +81,10 @@ export const AnalyticsView = ({ groupId }: { groupId: number }) => {
       </div>
 
       {/* Row 2: Performance & Load */}
-      <div className={styles.gridTwo}>
+      <div className="gridTwo">
         {/* Descriptive Metrics Card */}
-        <div className={styles.card}>
-          <h3 className={styles.cardTitle}>Performance Pulse</h3>
+        <div className="card">
+          <h3 className="cardTitle">Performance Pulse</h3>
           <div className="space-y-6 mt-4">
             <div className="flex justify-between items-end">
               <span className="text-slate-500 text-sm font-medium">
@@ -115,8 +115,8 @@ export const AnalyticsView = ({ groupId }: { groupId: number }) => {
         </div>
 
         {/* Predictive Bandwidth Card */}
-        <div className={styles.card}>
-          <h3 className={styles.cardTitle}>Member Bandwidth (ML Predicted)</h3>
+        <div className="card">
+          <h3 className="cardTitle">Member Bandwidth (ML Predicted)</h3>
           <div className="mt-4 space-y-5">
             {data.member_bandwidth.map((member, index) => (
               <div key={index}>
@@ -134,9 +134,9 @@ export const AnalyticsView = ({ groupId }: { groupId: number }) => {
                     {Math.round(member.risk_score)}% Load
                   </span>
                 </div>
-                <div className={styles.progressBarTrack}>
+                <div className="progressBarTrack">
                   <div
-                    className={styles.progressBarFill}
+                    className="progressBarFill"
                     style={{
                       width: `${member.risk_score}%`,
                       backgroundColor:
