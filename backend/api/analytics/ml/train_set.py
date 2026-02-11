@@ -13,9 +13,8 @@ password = os.getenv("DB_PWD")
 DB_URI = f"postgresql://postgres.behbluflerhbslixhywa:{password}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
 
 def train_and_upload_to_supabase():
-    # --- PART 1: AI MODEL TRAINING ---
+    # --- PART 1: AI MODEL TRAINING (Remains Same) ---
     print("🚜 Generating 1M rows for AI training...")
-    # (Keeping your existing 1M row logic here...)
     overdue_ratios = np.linspace(0, 1, 1000000)
     inactivity = np.linspace(0, 30, 1000000)
     total_tasks = np.linspace(1, 100, 1000000)
@@ -30,7 +29,7 @@ def train_and_upload_to_supabase():
     joblib.dump({'model': model, 'scaler': scaler}, buffer)
     binary_data = buffer.getvalue()
 
-    # --- PART 2: MASSIVE MOCK DATA INJECTION ---
+    # --- PART 2: UPDATED DATA INJECTION ---
     print("🧪 Injecting 150+ rows of realistic project data...")
     conn = psycopg2.connect(DB_URI)
     cur = conn.cursor()
@@ -40,45 +39,51 @@ def train_and_upload_to_supabase():
         cur.execute("INSERT INTO ai_models (model_name, model_binary, version) VALUES (%s, %s, %s) ON CONFLICT (model_name) DO UPDATE SET model_binary = EXCLUDED.model_binary;", 
                     ('risk_big_data_model', psycopg2.Binary(binary_data), '1.0.0'))
 
-        # 2. Setup Variables for Randomization
+        # 2. Setup Variables
         users = ['user_alpha', 'user_beta', 'user_gamma', 'user_delta']
-        project_id = 'proj_01'
+        test_group_id = 'group_777' # Our testing group ID
         now = datetime.now()
+
+        # --- NEW: CLEANUP (Prevents duplicate bloat) ---
+        print(f"🧹 Clearing old test data for {test_group_id}...")
+        cur.execute("DELETE FROM tasks WHERE group_id = %s", (test_group_id,))
+        cur.execute("DELETE FROM messages WHERE project_id = %s", (test_group_id,))
 
         # 3. Generate 150 Tasks
         print("📝 Generating 150 tasks...")
         for i in range(150):
-            user_id = random.choice(users)
-            created_at = now - timedelta(days=random.randint(10, 30))
+            assignee_id = random.choice(users)
+            start_date = now - timedelta(days=random.randint(10, 45))
             
-            # 60% are completed, 40% are pending
-            if random.random() > 0.4:
-                status = 'completed'
-                completed_at = created_at + timedelta(days=random.randint(1, 7))
-                due_date = created_at + timedelta(days=5)
+            if random.random() > 0.3:
+                # COMPLETED TASK
+                progress = 100
+                end_date = start_date + timedelta(days=random.randint(1, 7))
+                is_overdue = False
             else:
-                status = 'pending'
-                completed_at = None
-                # Make some of these overdue
-                due_date = now - timedelta(days=random.randint(-5, 5))
+                # PENDING TASK
+                progress = random.randint(0, 90)
+                end_date = now + timedelta(days=random.randint(-5, 10))
+                # Logic: If progress < 100 and end_date is past, it's overdue
+                is_overdue = end_date < now
 
             cur.execute("""
-                INSERT INTO tasks (project_id, user_id, status, created_at, completed_at, due_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (project_id, user_id, status, created_at, completed_at, due_date))
+                INSERT INTO tasks (group_id, assignee_id, progress_percentage, start_date, end_date, is_overdue, task_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (test_group_id, assignee_id, progress, start_date, end_date, is_overdue, f"Task {i}"))
 
-        # 4. Generate 50 Messages (for Activity Pulse)
+        # 4. Generate 50 Messages
         print("💬 Generating 50 messages...")
         for i in range(50):
             user_id = random.choice(users)
-            msg_time = now - timedelta(hours=random.randint(0, 72)) # Active in last 3 days
+            msg_time = now - timedelta(hours=random.randint(0, 72))
             cur.execute("""
                 INSERT INTO messages (project_id, user_id, content, created_at)
                 VALUES (%s, %s, %s, %s)
-            """, (project_id, user_id, "Sample project communication", msg_time))
+            """, (test_group_id, user_id, "Sample project communication", msg_time))
 
         conn.commit()
-        print("✅ Success: Database is now packed with realistic testing data!")
+        print(f"✅ Success: {test_group_id} is ready for AI analysis!")
 
     except Exception as e:
         conn.rollback()
