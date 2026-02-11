@@ -9,7 +9,7 @@ from rest_framework.response import Response
 # Models, Analytic Engine & Serializers
 from .models import TaskNote, Task, Message, Group
 from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer
-from .analytics_engine import AnalyticsEngine
+from .analytics.analytics_engine import AnalyticsEngine
 
 User = get_user_model()
 

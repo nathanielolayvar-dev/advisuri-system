@@ -1,6 +1,6 @@
 import pandas as pd
 
-def calculate_contribution_balance(tasks_df):
+def calculate_balance_score(tasks_df):
     """
     Calculates how evenly tasks are distributed among members.
     Returns: A score from 0 (poor balance) to 100 (perfect balance).
@@ -9,7 +9,7 @@ def calculate_contribution_balance(tasks_df):
         return 100.0
 
     # Count tasks per user
-    counts = tasks_df['assigned_to'].value_counts()
+    counts = tasks_df['user_id'].value_counts()
     
     if len(counts) <= 1:
         # If only one person is in the group, balance is technically 100% 
@@ -17,6 +17,7 @@ def calculate_contribution_balance(tasks_df):
         return 100.0
 
     # Math: Standard Deviation / Mean (Coefficient of Variation)
+    # We use .std() and .mean() to see how far apart the users are
     # A high variation means low balance.
     variation = (counts.std() / counts.mean()) * 10 
     

@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
 
-def predict_completion_date(tasks_df):
+def get_forecast_date(tasks_df):
     """
     Goal: Use the Velocity trend to forecast the 100% completion date.
     Returns: A formatted date string or a status message.

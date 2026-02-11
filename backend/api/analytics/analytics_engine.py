@@ -6,16 +6,16 @@ import os
 from datetime import datetime
 
 # Absolute imports - Match actual filenames in the /algorithms folder
-from algorithms.activity_pulse import calculate_pulse
-from algorithms.task_velocity import calculate_velocity
-from algorithms.completion_forecast import get_forecast_date
-from algorithms.contribution_balance import calculate_balance_score
-from algorithms.workload_prediction import identify_bottlenecks
-from algorithms.milestone_buffer import calculate_buffer
-from algorithms.member_bandwidth import calculate_detailed_bandwidth
-from algorithms.risk_detection import predict_project_risk
+from .algorithms.activity_pulse import calculate_pulse
+from .algorithms.task_velocity import calculate_velocity
+from .algorithms.completion_forecast import get_forecast_date
+from .algorithms.contribution_balance import calculate_balance_score
+from .algorithms.workload_prediction import analyze_workload_dynamics
+from .algorithms.milestone_buffer import calculate_buffer
+from .algorithms.member_bandwidth import calculate_detailed_bandwidth
+from .algorithms.risk_detection import predict_project_risk
 
-class SupabaseAnalyticsEngine:
+class AnalyticsEngine:
     def __init__(self):
         # Load DB_URI from environment
         password = os.getenv("DB_PWD")
@@ -76,7 +76,7 @@ class SupabaseAnalyticsEngine:
         balance = calculate_balance_score(tasks_df)
 
         # 6. Workload & Bottlenecks
-        bottlenecks = identify_bottlenecks(tasks_df)
+        bottlenecks = analyze_workload_dynamics(tasks_df)
 
         # 7. Milestone Buffer (Compare forecast to your manual deadline)
         buffer_days = calculate_buffer(forecast_date, deadline_str)

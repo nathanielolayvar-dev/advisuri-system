@@ -41,7 +41,10 @@ Now that the database is 100% clean and the tables exist, the shell command will
 Enter the shell:
 
 PowerShell
+mpn run dev
 python manage.py shell
+
+
 Paste this code:
 
 Python
