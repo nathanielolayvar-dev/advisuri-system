@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { GroupAnalytics } from '../shared/types';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // 1. Create an instance (Better for adding Auth headers later)
 const api = axios.create({
