@@ -97,12 +97,14 @@ export type DocumentType = 'pdf' | 'excel' | 'code' | 'doc' | 'image' | 'other';
 
 export interface Document {
   id: number;
-  file_name: string;
+  name: string;
+  file: string;
   file_url: string;
-  uploaded_by: string;
-  upload_date: string;
-  file_size: string;
   file_type: DocumentType;
+  file_size: string;
+  uploaded_by: number;
+  uploaded_by_name: string;
+  created_at: string;
 }
 
 // src/components/analytics

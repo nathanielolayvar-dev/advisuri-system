@@ -11,5 +11,7 @@ urlpatterns = [
     path("notes/delete/<int:pk>/", views.NoteDelete.as_view(), name="delete-note"), 
     path("tasks/", views.TaskListCreate.as_view(), name="task-list"),
     path("user/profile/", views.get_user_profile, name="user_profile"),
+    path("documents/", views.DocumentListCreate.as_view(), name="document-list"),
+    path("documents/delete/<int:pk>/", views.DocumentDelete.as_view(), name="delete-document"),
     path("", include(router.urls)),
 ]

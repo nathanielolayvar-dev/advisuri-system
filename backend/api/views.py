@@ -5,10 +5,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 
 # Models, Analytic Engine & Serializers
-from .models import TaskNote, Task, Message, Group
-from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer
+from .models import TaskNote, Task, Message, Group, Document
+from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer, DocumentSerializer
 from .analytics.analytics_engine import AnalyticsEngine
 
 User = get_user_model()
@@ -28,6 +29,11 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Return groups where the user is a member
+        return Group.objects.filter(members=user).prefetch_related('members')
 
     def perform_create(self, serializer):
         group = serializer.save()
@@ -81,6 +87,28 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+class DocumentListCreate(generics.ListCreateAPIView):
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        group_id = self.request.query_params.get('group')
+        if group_id:
+            return Document.objects.filter(group_id=group_id).order_by('-created_at')
+        return Document.objects.none()
+
+    def perform_create(self, serializer):
+        group_id = self.request.data.get('group')
+        serializer.save(uploaded_by=self.request.user, group_id=group_id)
+
+class DocumentDelete(generics.DestroyAPIView):
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Document.objects.filter(uploaded_by=self.request.user)
 
 # Handles the logic for all 10 features by calling the methods
 class GroupAnalyticsDashboard(APIView):

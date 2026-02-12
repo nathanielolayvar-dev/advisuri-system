@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoutes';
 import { ACCESS_TOKEN } from './constants';
 import { supabase } from './api';
 import Analytics from "./pages/AnalyticalPage"; 
+import { SidebarProvider } from './components/Sidebar/SidebarContext';
 
 function Logout(): React.JSX.Element {
   localStorage.clear();
@@ -35,42 +36,44 @@ function App(): React.JSX.Element {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/groups"/>} />
-        
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
+      <SidebarProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to="/groups"/>} />
+          
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/groups"
-          element={
-            <ProtectedRoute>
-              <GroupPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute>
+                <GroupPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/analytics"
-          element={
-            <ProtectedRoute>
-              <Analytics />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/logout" element={<Logout />} />
-        <Route path="/register" element={<RegisterAndLogout />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/logout" element={<Logout />} />
+          <Route path="/register" element={<RegisterAndLogout />} />
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </SidebarProvider>
     </BrowserRouter>
   );
 }

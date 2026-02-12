@@ -18,4 +18,3 @@ gunicorn
 numpy 
 pandas 
 scikit-learn
-@supabase/supabase-js

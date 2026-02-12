@@ -19,6 +19,7 @@ class User(AbstractUser):
 
 class Group(models.Model):
     name = models.CharField(max_length=255)
+    course = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     # Use the User model defined at the top of your file
     members = models.ManyToManyField(User, related_name="chat_groups")
@@ -93,4 +94,38 @@ class Message(models.Model):
         ordering = ['created_at'] # Ensures messages appear in order
 
     def __str__(self):
-        return f"{self.author.username}: {self.text[:20]}"
+        return f"{self.author.username}: {text[:20]}"
+
+def document_file_path(instance, filename):
+    """Generate file path for new document"""
+    group_id = instance.group.id if instance.group else 'temp'
+    return f'documents/group_{group_id}/{filename}'
+
+class Document(models.Model):
+    DOCUMENT_TYPES = (
+        ('pdf', 'PDF'),
+        ('excel', 'Excel'),
+        ('code', 'Code'),
+        ('doc', 'Document'),
+        ('image', 'Image'),
+        ('other', 'Other'),
+    )
+    
+    group = models.ForeignKey(
+        'Group', 
+        on_delete=models.CASCADE, 
+        related_name='documents'
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='uploaded_documents'
+    )
+    name = models.CharField(max_length=255)
+    file = models.FileField(upload_to=document_file_path)
+    file_type = models.CharField(max_length=10, choices=DOCUMENT_TYPES, default='other')
+    file_size = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
