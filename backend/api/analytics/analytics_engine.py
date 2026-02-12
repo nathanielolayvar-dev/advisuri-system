@@ -49,7 +49,7 @@ class AnalyticsEngine:
             return {"error": "No task data available"}
 
         # 1. Activity Pulse (Messages)
-        pulse_score = calculate_pulse(messages_df)
+        pulse_score = calculate_pulse(messages_df) # Inside, it uses messages_df['user_id']
 
         # 2. Task Velocity
         # Note: Internally, task_velocity should now look for tasks_df['progress_percentage'] == 100
