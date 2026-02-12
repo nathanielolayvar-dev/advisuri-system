@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import psycopg2
-from analytics_engine import AnalyticsEngine
+from api.analytics.analytics_engine import AnalyticsEngine
 
 def analyze_specific_group(group_id, user_id):
     # 1. Database Connection

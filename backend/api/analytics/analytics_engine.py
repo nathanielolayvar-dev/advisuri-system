@@ -6,14 +6,14 @@ import os
 from datetime import datetime
 
 # Absolute imports - Match actual filenames in the /algorithms folder
-from .algorithms.activity_pulse import calculate_pulse
-from .algorithms.task_velocity import calculate_velocity
-from .algorithms.completion_forecast import get_forecast_date
-from .algorithms.contribution_balance import calculate_balance_score
-from .algorithms.workload_prediction import analyze_workload_dynamics
-from .algorithms.milestone_buffer import calculate_buffer
-from .algorithms.member_bandwidth import calculate_detailed_bandwidth
-from .algorithms.risk_detection import predict_project_risk
+from api.analytics.algorithms.activity_pulse import calculate_pulse
+from api.analytics.algorithms.task_velocity import calculate_velocity
+from api.analytics.algorithms.completion_forecast import get_forecast_date
+from api.analytics.algorithms.contribution_balance import calculate_balance_score
+from api.analytics.algorithms.workload_prediction import analyze_workload_dynamics
+from api.analytics.algorithms.milestone_buffer import calculate_buffer
+from api.analytics.algorithms.member_bandwidth import calculate_detailed_bandwidth
+from api.analytics.algorithms.risk_detection import predict_project_risk
 
 class AnalyticsEngine:
     def __init__(self):
