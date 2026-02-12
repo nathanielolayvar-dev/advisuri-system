@@ -1,11 +1,14 @@
 import sys
 import os
 
-# Add the current directory to sys.path so Python treats 'analytics' as a package
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# 1. Force the parent directory (backend) into Python's path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
 try:
-    from analytics.analytics_engine import SupabaseAnalyticsEngine
+    # 2. Use an absolute import now that the path is set
+    from api.analytics.analytics_engine import AnalyticsEngine
     print("✅ Success: Analytics Engine and all Algorithms are linked.")
 except ImportError as e:
     print(f"❌ Import failed: {e}")
