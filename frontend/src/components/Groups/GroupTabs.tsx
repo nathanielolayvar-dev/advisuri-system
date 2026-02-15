@@ -1,13 +1,6 @@
 import React from 'react';
 import { Users, Plus, Settings, ChevronRight, Search, Loader2 } from 'lucide-react';
-
-interface Group {
-  id: number;
-  name: string;
-  course?: string;
-  members: any[];
-  member_details?: { id: number; username: string }[];
-}
+import { Group } from '../../shared/types';
 
 interface GroupTabsProps {
   groups: Group[];

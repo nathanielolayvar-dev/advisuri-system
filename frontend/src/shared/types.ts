@@ -11,7 +11,9 @@ export interface Group {
   id: number;
   name: string;
   course: string;
-  members: number;
+  members?: any[];
+  member_details?: Array<{ id: number; username: string }>;
+  created_at?: string;
 }
 
 export interface Task {
