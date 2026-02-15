@@ -6,7 +6,7 @@ import '../../../styles/TimelineView.css';
 import api from '../../../api';
 
 interface TimelineViewProps {
-  groupId: number;
+  groupId: string | number;
 }
 
 export const TimelineView = ({ groupId }: TimelineViewProps) => {

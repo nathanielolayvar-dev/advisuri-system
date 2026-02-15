@@ -5,7 +5,7 @@ import '../../../styles/ChatView.css';
 import api from '../../../api';
 
 interface ChatViewProps {
-  groupId: number;
+  groupId: string | number;
 }
 
 // File type icons component

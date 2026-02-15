@@ -6,7 +6,7 @@ import { Task, TaskNote, Group } from '../../../shared/types';
 import { getStatusColor } from '../../../shared/utils';
 
 interface NotesViewProps {
-  groupId: number;
+  groupId: string | number;
 }
 
 export const NotesView = ({ groupId }: NotesViewProps) => {

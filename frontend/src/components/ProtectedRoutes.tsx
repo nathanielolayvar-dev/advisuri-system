@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useState, useEffect, ReactNode } from "react";
 // IMPORTANT: Use the same supabase instance as your api.ts
-import { supabase } from "../api"; 
+import { supabase } from '../supabaseClient';
 
 interface ProtectedRouteProps {
   children: ReactNode;

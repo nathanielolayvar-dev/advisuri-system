@@ -1,7 +1,6 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../api'; // Import from api.ts to ensure shared instance
-import { ACCESS_TOKEN } from '../constants';
+import { supabase } from '../supabaseClient';import { ACCESS_TOKEN } from '../constants';
 import '../styles/form.css';
 import LoadingIndicator from './LoadingIndicator';
 

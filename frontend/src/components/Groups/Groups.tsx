@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Video, MessageSquare, FileText, Clock, Users, Search, MoreHorizontal } from 'lucide-react';
 import { GroupTabs } from './GroupTabs';
-import { GroupModal } from './GroupModals';
+import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
 import { ChatView } from './views/ChatView';
 import { NotesView } from './views/NotesView';
 import { TimelineView } from './views/TimelineView';
-import api from '../../api';
+import { useSidebar } from '../Sidebar/SidebarContext';
+import { supabase } from '../../supabaseClient';
+import { CreateGroupWithMembersResult } from '../../services/groupService';
 
 type ViewType = 'chat' | 'notes' | 'timeline';
 
@@ -40,19 +42,56 @@ const MemberStack = ({ members }: { members: any[] }) => {
 
 export const Groups = () => {
   const [groups, setGroups] = useState<any[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewType>('chat');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get user role from SidebarContext
+  const { userData } = useSidebar();
+  const isStaff = userData?.isStaff === true;
 
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/groups/');
-      setGroups(res.data);
-      if (res.data.length > 0 && !selectedGroupId) {
-        setSelectedGroupId(res.data[0].id);
+      
+      // Use Supabase directly for proper RLS support
+      const { data, error } = await supabase
+        .from('api_group')
+        .select(`
+          *,
+          api_group_members(
+            id,
+            user_id,
+            api_user(id, username, first_name, last_name)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading groups:', error);
+        return;
+      }
+
+      // Transform the data
+      const transformedGroups = (data || []).map((group: any) => ({
+        id: group.id,
+        name: group.name,
+        course: group.course,
+        created_at: group.created_at,
+        member_details: group.api_group_members?.map((member: any) => ({
+          id: member.api_user?.id || member.user_id,
+          username: member.api_user?.username || '',
+          first_name: member.api_user?.first_name || '',
+          last_name: member.api_user?.last_name || ''
+        })) || [],
+        members: group.api_group_members?.map((m: any) => m.user_id) || []
+      }));
+
+      setGroups(transformedGroups);
+      if (transformedGroups.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(transformedGroups[0].id);
       }
     } catch (err) {
       console.error('Error loading groups:', err);
@@ -65,10 +104,17 @@ export const Groups = () => {
 
   const activeGroup = groups.find((g) => g.id === selectedGroupId);
 
-  const handleGroupCreated = (newGroup: any) => {
-    setGroups((prev) => [...prev, newGroup]);
-    setSelectedGroupId(newGroup.id);
-    setIsModalOpen(false);
+  const handleGroupCreated = (result: CreateGroupWithMembersResult) => {
+    if (result.group) {
+      const newGroup = {
+        ...result.group,
+        member_details: result.members.map(m => ({ id: m.user_id, username: '' })),
+        members: result.members.map(m => m.user_id)
+      };
+      setGroups((prev) => [...prev, newGroup]);
+      setSelectedGroupId(String(result.group.id));
+      setIsModalOpen(false);
+    }
   };
 
   // Filter groups based on search
@@ -89,6 +135,7 @@ export const Groups = () => {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         loading={loading}
+        isStaff={isStaff}
       />
 
       {/* MAIN WORKSPACE */}
@@ -116,11 +163,14 @@ export const Groups = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <UserSearchDropdown
-                    groupId={selectedGroupId}
-                    currentMembers={activeGroup?.members || []}
-                    onMemberAdded={fetchGroups}
-                  />
+                  {isStaff && (
+                    <UserSearchDropdown
+                      groupId={String(selectedGroupId)}
+                      currentMembers={activeGroup?.members || []}
+                      onMemberAdded={fetchGroups}
+                      isStaff={isStaff}
+                    />
+                  )}
                   <button className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-emerald-100 transition-all active:scale-95">
                     <Video size={18} />
                     Join Call
@@ -173,10 +223,10 @@ export const Groups = () => {
                 {loading ? 'Loading groups...' : 'No groups yet'}
               </h3>
               <p className="text-sm max-w-md">
-                {loading ? 'Please wait while we fetch your workspaces' : 'Create a new group to start collaborating with your team'}
+                {loading ? 'Please wait while we fetch your workspaces' : isStaff ? 'Create a new group to start collaborating with your team' : 'Join a group to start collaborating with your team'}
               </p>
             </div>
-            {!loading && (
+            {!loading && isStaff && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-100 transition-all active:scale-95"
@@ -188,10 +238,12 @@ export const Groups = () => {
         )}
       </div>
 
-      <GroupModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+      <GroupCreator
+        userId={userData?.id || ''}
+        isStaff={isStaff}
         onGroupCreated={handleGroupCreated}
+        onClose={() => setIsModalOpen(false)}
+        isOpen={isModalOpen}
       />
     </div>
   );

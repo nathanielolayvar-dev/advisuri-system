@@ -4,13 +4,14 @@ import { Group } from '../../shared/types';
 
 interface GroupTabsProps {
   groups: Group[];
-  selectedGroupId: number | null;
-  onSelectGroup: (groupId: number) => void;
+  selectedGroupId: string | null;
+  onSelectGroup: (groupId: string) => void;
   onOpenModal: () => void;
   onMemberAdded?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   loading?: boolean;
+  isStaff?: boolean;
 }
 
 export const GroupTabs = ({
@@ -21,6 +22,7 @@ export const GroupTabs = ({
   searchQuery = '',
   onSearchChange,
   loading = false,
+  isStaff = false,
 }: GroupTabsProps) => {
 
   // Helper to safely get an initial
@@ -71,6 +73,7 @@ export const GroupTabs = ({
           </div>
         )}
 
+        {isStaff && (
         <button 
           onClick={onOpenModal} 
           className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-100 transition-all active:scale-[0.98]"
@@ -78,6 +81,7 @@ export const GroupTabs = ({
           <Plus className="w-4 h-4" />
           <span>New Group</span>
         </button>
+        )}
       </div>
 
       {/* GROUP LIST */}
@@ -90,12 +94,14 @@ export const GroupTabs = ({
         ) : groups.length === 0 ? (
           <div className="text-center py-8 px-4">
             <p className="text-sm text-slate-400 mb-3">No groups found</p>
+            {isStaff && (
             <button
               onClick={onOpenModal}
               className="text-sm text-blue-600 font-medium hover:text-blue-700"
             >
               Create your first group
             </button>
+            )}
           </div>
         ) : (
           groups.map((group) => {

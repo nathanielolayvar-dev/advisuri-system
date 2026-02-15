@@ -1,3 +1,71 @@
+/**
+ * Supabase Database Types
+ * These types correspond to the Supabase tables and Row Level Security (RLS) policies.
+ * 
+ * Security Logic:
+ * - Teachers (Staff): is_staff === true - can CREATE groups and ADD members
+ * - Students: is_staff === false - can only READ groups and see members
+ */
+
+export interface ApiUser {
+  id: string; // UUID
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  is_staff: boolean;
+  role: string;
+}
+
+export interface ApiGroup {
+  id: string; // UUID
+  name: string;
+  course: string;
+  created_at: string;
+}
+
+export interface ApiGroupMember {
+  id: string; // UUID
+  group_id: string; // UUID
+  user_id: string; // UUID
+}
+
+export interface ApiTask {
+  id: string; // UUID
+  title: string;
+  assignee_id: string; // UUID
+}
+
+/**
+ * Database type helper for Supabase responses
+ */
+export type Database = {
+  public: {
+    Tables: {
+      api_user: {
+        Row: ApiUser;
+        Insert: Omit<ApiUser, 'id'>;
+        Update: Partial<Omit<ApiUser, 'id'>>;
+      };
+      api_group: {
+        Row: ApiGroup;
+        Insert: Omit<ApiGroup, 'id' | 'created_at'>;
+        Update: Partial<Omit<ApiGroup, 'id' | 'created_at'>>;
+      };
+      api_group_members: {
+        Row: ApiGroupMember;
+        Insert: Omit<ApiGroupMember, 'id'>;
+        Update: Partial<Omit<ApiGroupMember, 'id'>>;
+      };
+      api_task: {
+        Row: ApiTask;
+        Insert: Omit<ApiTask, 'id'>;
+        Update: Partial<Omit<ApiTask, 'id'>>;
+      };
+    };
+  };
+};
+
 export interface User {
   id: number;
   username: string;
@@ -8,11 +76,11 @@ export interface User {
  * Core Group Information
  */
 export interface Group {
-  id: number;
+  id: string; // UUID
   name: string;
   course: string;
   members?: any[];
-  member_details?: Array<{ id: number; username: string }>;
+  member_details?: Array<{ id: string; username: string }>;
   created_at?: string;
 }
 
