@@ -7,7 +7,13 @@ def analyze_specific_group(group_id, user_id):
     # 1. Database Connection
     # Ensure your DB_PWD is set in your environment variables
     password = os.getenv("DB_PWD")
-    DB_URI = f"postgresql://postgres.behbluflerhbslixhywa:{password}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+
+    print(f"DEBUG: Password loaded is: {'FOUND' if password else 'MISSING/NONE'}")
+
+    if not password:
+        raise ValueError("DB_PWD not found! Check your .env file or environment variables.")
+    
+    DB_URI = f"postgresql://postgres.behbluflerhbslixhywa:{password}@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
     
     conn = psycopg2.connect(DB_URI)
     
