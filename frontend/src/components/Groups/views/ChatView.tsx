@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, ArrowDown, Link as LinkIcon, File, X, FileText, Image, FileSpreadsheet, Code } from 'lucide-react';
 import { Message, Document } from '../../../shared/types';
 import '../../../styles/ChatView.css';
-import api from '../../../api';
+import { supabase } from '../../../supabaseClient';
+
 
 interface ChatViewProps {
   groupId: string | number;
@@ -31,35 +32,82 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+useEffect(() => {
+  const getUserId = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
+  getUserId();
+}, []);
+
   // Fetch messages from the backend
   const fetchMessages = async () => {
     if (!groupId) return;
     try {
-      const response = await api.get(`/api/messages/?group=${groupId}`);
-      setMessages(response.data);
+      const { data, error } = await supabase
+        .from('api_chat')
+        .select(`
+          id,
+          text,
+          created_at,
+          user_id,
+          api_user ( username )
+        `)
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedMessages = data.map(msg => {
+        const userData: any = Array.isArray(msg.api_user) ? msg.api_user[0] : msg.api_user;
+        const name = userData?.username || 'Unknown';
+        
+        return {
+          id: msg.id,
+          text: msg.text,
+          timestamp: msg.created_at,
+          sender_name: userData?.username || 'Unknown',
+          is_self: msg.user_id === currentUserId,
+          sender_initials: name.charAt(0).toUpperCase()
+        };
+      });
+
+      setMessages(formattedMessages);
     } catch (err) {
       console.error('Error loading chat:', err);
     }
   };
 
-  // Fetch documents from the backend
-  const fetchDocuments = async () => {
-    if (!groupId) return;
-    try {
-      const response = await api.get(`/api/documents/?group=${groupId}`);
-      setDocuments(response.data);
-    } catch (err) {
-      console.error('Error loading documents:', err);
-    }
-  };
 
   // Load messages and documents when group changes
   useEffect(() => {
     fetchMessages();
-    fetchDocuments();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, [groupId]);
+    fetchDocuments(); // Added this back in since you have the function now
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'api_chat',
+          filter: `group_id=eq.${groupId}`,
+        },
+        () => {
+          fetchMessages(); // Refresh when a new message is inserted
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, currentUserId]); // Added currentUserId to dependencies
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -102,11 +150,31 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
 
     setSending(true);
     try {
-      const res = await api.post(`/api/messages/`, {
-        text: newMessage,
-        group: groupId,
-      });
-      setMessages((prev) => [...prev, { ...res.data, is_self: true }]);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase
+        .from('api_chat')
+        .insert([
+          { 
+            text: newMessage, 
+            group_id: groupId, 
+            user_id: user?.id 
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Immediately add to UI for snappiness
+      setMessages((prev) => [...prev, { 
+        id: data.id, 
+        text: data.text, 
+        timestamp: data.created_at, 
+        is_self: true,
+        sender_name: 'You',
+        sender_initials: 'Y',
+      }]);
       setNewMessage('');
     } catch (err) {
       console.error('Failed to send:', err);
@@ -115,39 +183,35 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Fetch documents from Supabase
+  const fetchDocuments = async () => {
+    if (!groupId) return;
+    try {
+      const { data, error } = await supabase
+        .from('api_documents')
+        .select('*')
+        .eq('group_id', groupId);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('group', groupId.toString());
-    formData.append('name', file.name);
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+    }
+  };
 
-    try {
-      const response = await api.post('/api/documents/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setDocuments((prev) => [...prev, response.data]);
-      setShowDocuments(true);
-    } catch (err) {
-      console.error('Failed to upload file:', err);
-    }
-    
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  const handleDeleteDocument = async (docId: string | number) => {
+    try {
+      const { error } = await supabase
+        .from('api_documents')
+        .delete()
+        .eq('id', docId);
 
-  const handleDeleteDocument = async (docId: number) => {
-    try {
-      await api.delete(`/api/documents/delete/${docId}/`);
-      setDocuments((prev) => prev.filter((d) => d.id !== docId));
-    } catch (err) {
-      console.error('Failed to delete document:', err);
-    }
-  };
+      if (error) throw error;
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+    }
+  };
 
   const formatFileSize = (size: string) => {
     return size || '0 KB';
@@ -191,7 +255,7 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
               ref={fileInputRef}
               type="file"
               className="hidden"
-              onChange={handleFileUpload}
+              //onChange={handleFileUpload}
             />
           </div>
           <div className="documents-list">
@@ -296,7 +360,7 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          onChange={handleFileUpload}
+          //onChange={handleFileUpload}
         />
         <div className="chat-input-wrapper">
           <input
