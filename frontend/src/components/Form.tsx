@@ -39,6 +39,11 @@ function Form({ method }: FormProps) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options:{
+            data:{
+              role: 'student' //default role set in the database
+            }
+          }
         });
 
         if (error) throw error;

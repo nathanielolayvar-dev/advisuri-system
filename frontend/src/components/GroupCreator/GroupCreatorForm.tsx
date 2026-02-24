@@ -88,86 +88,56 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!groupName.trim()) {
-      setError('Group name is required');
-      return;
-    }
-
-    if (!profile?.id) {
-      setError('User not authenticated');
-      return;
-    }
+    if (!groupName.trim()) return setError('Group name is required');
+    if (!profile?.user_id) return setError('User not authenticated');
 
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Step 1: Create the group
+      // STEP 1: Create the group with 'group_name' and 'created_by'
       const { data: groupData, error: groupError } = await supabase
-        .from('api_group')
+        .from('groups') // Matches your schema
         .insert([{ 
-          name: groupName.trim(), 
-          course: course.trim() 
+          group_name: groupName.trim(), 
+          course: course.trim(),
+          created_by: profile.user_id // Ensure the teacher is the owner
         }])
         .select()
         .single();
 
-      if (groupError) {
-        console.error('Error creating group:', groupError);
-        
-        // Handle specific errors
-        if (groupError.code === '42501') {
-          setError('Permission Denied: Your account does not have Teacher permissions in the api_user table.');
-        } else if (groupError.code === '23505') {
-          setError('A group with this name already exists.');
-        } else {
-          setError(`Failed to create group: ${groupError.message}`);
-        }
-        setLoading(false);
-        return;
-      }
+      if (groupError) throw groupError;
 
-      const newGroup = groupData;
-      console.log('Group created:', newGroup);
+      // STEP 2: Prepare member list (Students + The Teacher)
+      const memberIds = Array.from(selectedStudents);
+      memberIds.push(profile.user_id); // Auto-add the teacher to their own group
 
-      // Step 2: Add selected students to the group
-      if (selectedStudents.size > 0) {
-        const memberInserts = Array.from(selectedStudents).map(studentId => ({
-          group_id: newGroup.id,
-          user_id: studentId
-        }));
+      const memberInserts = memberIds.map(studentId => ({
+        group_id: groupData.group_id, // Matches your schema 'group_id'
+        user_id: studentId
+      }));
 
-        const { error: membersError } = await supabase
-          .from('api_group_members')
-          .insert(memberInserts);
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .insert(memberInserts);
 
-        if (membersError) {
-          console.error('Error adding members:', membersError);
-          // Group was created, but member addition failed
-          setSuccess(`Group "${groupName}" created! (Note: Could not add some members)`);
-        } else {
-          setSuccess(`Group "${groupName}" created with ${selectedStudents.size} member${selectedStudents.size > 1 ? 's' : ''}!`);
-        }
+      if (membersError) {
+        console.error('Error adding members:', membersError);
+        setSuccess(`Group created, but adding members failed.`);
       } else {
-        setSuccess(`Group "${groupName}" created!`);
+        setSuccess(`Success! Group created with ${selectedStudents.size} students.`);
       }
 
-      // Reset form
+      // Reset and Refresh
       setGroupName('');
       setCourse('');
       setSelectedStudents(new Set());
-      
-      // Refresh the profile/context
-      await refreshProfile();
-      
-      // Call success callback
       onSuccess?.();
       
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+    } catch (err: any) {
+      console.error('Submission error:', err);
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }

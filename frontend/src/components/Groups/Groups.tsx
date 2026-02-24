@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, MessageSquare, FileText, Clock, Users, Search, MoreHorizontal } from 'lucide-react';
+import { Video, MessageSquare, FileText, Clock, Users, MoreHorizontal } from 'lucide-react';
 import { GroupTabs } from './GroupTabs';
 import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
@@ -8,11 +8,9 @@ import { NotesView } from './views/NotesView';
 import { TimelineView } from './views/TimelineView';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
-import { CreateGroupWithMembersResult } from '../../services/groupService';
 
 type ViewType = 'chat' | 'notes' | 'timeline';
 
-// Internal Component for the Awesome Avatar Stack
 const MemberStack = ({ members }: { members: any[] }) => {
   const displayLimit = 4;
   const displayMembers = members.slice(0, displayLimit);
@@ -25,7 +23,7 @@ const MemberStack = ({ members }: { members: any[] }) => {
           key={m.id || i} 
           title={m.username}
           className={`w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-1 ring-slate-200
-            ${['bg-gradient-to-br from-blue-500 to-blue-700', 'bg-gradient-to-br from-purple-500 to-purple-700', 'bg-gradient-to-br from-emerald-500 to-emerald-700', 'bg-gradient-to-br from-amber-500 to-amber-700'][i % 4]}`
+            ${['bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-amber-500'][i % 4]}`
         }
         >
           {m.username?.charAt(0).toUpperCase() || '?'}
@@ -48,84 +46,80 @@ export const Groups = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Get user role from SidebarContext
   const { userData } = useSidebar();
   const isStaff = userData?.isStaff === true;
 
   const fetchGroups = async () => {
+    if (!userData?.id) return;
+
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Use Supabase directly for proper RLS support
       const { data, error } = await supabase
-        .from('api_group')
+        .from('groups')
         .select(`
-          *,
-          api_group_members(
-            id,
+          group_id,
+          group_name,
+          course,
+          created_at,
+          group_members (
             user_id,
-            api_user(id, username, first_name, last_name)
+            users (
+              full_name,
+              email
+            )
           )
-        `)
-        .order('created_at', { ascending: false });
+        `);
 
-      if (error) {
-        console.error('Error loading groups:', error);
-        return;
-      }
+      if (error) throw error;
 
-      // Transform the data
-      const transformedGroups = (data || []).map((group: any) => ({
-        id: group.id,
-        name: group.name,
-        course: group.course,
-        created_at: group.created_at,
-        member_details: group.api_group_members?.map((member: any) => ({
-          id: member.api_user?.id || member.user_id,
-          username: member.api_user?.username || '',
-          first_name: member.api_user?.first_name || '',
-          last_name: member.api_user?.last_name || ''
-        })) || [],
-        members: group.api_group_members?.map((m: any) => m.user_id) || []
+      // Transform the data for your UI components
+      const transformed = (data || []).map((g: any) => ({
+        id: g.group_id,
+        name: g.group_name,
+        course: g.course,
+        created_by: g.created_by,
+        members: g.group_members?.map((mem: any) => mem.user_id) || [],
+        member_details: g.group_members?.map((mem: any) => ({
+          id: mem.user_id,
+          username: mem.users?.full_name || mem.users?.username || 'Unknown'
+        })) || []
       }));
 
-      setGroups(transformedGroups);
-      if (transformedGroups.length > 0 && !selectedGroupId) {
-        setSelectedGroupId(transformedGroups[0].id);
+      setGroups(transformed);
+
+      // Auto-select the first group if nothing is selected yet
+      if (transformed.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(transformed[0].id);
       }
     } catch (err) {
-      console.error('Error loading groups:', err);
+      console.error("Error fetching groups:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchGroups(); }, []);
+  //fetch whenever the user logs in or ID becomes available
+  useEffect(() => {
+    if (userData?.id) {
+      fetchGroups();
+    }
+  }, [userData?.id]);
 
   const activeGroup = groups.find((g) => g.id === selectedGroupId);
 
-  const handleGroupCreated = (result: CreateGroupWithMembersResult) => {
-    if (result.group) {
-      const newGroup = {
-        ...result.group,
-        member_details: result.members.map(m => ({ id: m.user_id, username: '' })),
-        members: result.members.map(m => m.user_id)
-      };
-      setGroups((prev) => [...prev, newGroup]);
-      setSelectedGroupId(String(result.group.id));
-      setIsModalOpen(false);
-    }
+  const handleGroupCreated = async () => {
+    await fetchGroups(); // Refresh everything
+    setIsModalOpen(false);
   };
 
-  // Filter groups based on search
-  const filteredGroups = groups.filter(g => 
-    g.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.course?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredGroups = groups.filter(g => {
+    const nameMatch = g.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const courseMatch = g.course?.toLowerCase().includes(searchQuery.toLowerCase());
+    return nameMatch || courseMatch;
+  });
 
   return (
     <div className="flex h-full bg-slate-50 overflow-hidden font-sans">
-      {/* SIDEBAR: Group Navigation */}
       <GroupTabs
         groups={filteredGroups}
         selectedGroupId={selectedGroupId}
@@ -138,15 +132,13 @@ export const Groups = () => {
         isStaff={isStaff}
       />
 
-      {/* MAIN WORKSPACE */}
       <div className="flex-1 flex flex-col min-w-0">
         {selectedGroupId ? (
           <>
-            {/* AWESOME HEADER */}
             <div className="bg-white border-b border-slate-200 px-8 pt-6 pb-4 shrink-0">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-200">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
                     {activeGroup?.name?.charAt(0).toUpperCase() || 'G'}
                   </div>
                   <div>
@@ -171,17 +163,16 @@ export const Groups = () => {
                       isStaff={isStaff}
                     />
                   )}
-                  <button className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-emerald-100 transition-all active:scale-95">
+                  <button className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md transition-all">
                     <Video size={18} />
                     Join Call
                   </button>
-                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                  <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
                     <MoreHorizontal size={20} />
                   </button>
                 </div>
               </div>
 
-              {/* TAB NAVIGATION */}
               <div className="flex gap-6 mt-6 -mb-px">
                 {[
                   { id: 'chat', icon: MessageSquare, label: 'Chat & Docs' },
@@ -191,10 +182,10 @@ export const Groups = () => {
                   <button
                     key={id}
                     onClick={() => setActiveView(id as ViewType)}
-                    className={`flex items-center gap-2 pb-3 text-sm font-medium transition-all border-b-2 ${
+                    className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-all ${
                       activeView === id
                         ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                        : 'border-transparent text-slate-400 hover:text-slate-600'
                     }`}
                   >
                     <Icon size={16} />
@@ -204,7 +195,6 @@ export const Groups = () => {
               </div>
             </div>
 
-            {/* DYNAMIC CONTENT AREA */}
             <div className="flex-1 overflow-hidden p-6">
               <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
@@ -223,17 +213,9 @@ export const Groups = () => {
                 {loading ? 'Loading groups...' : 'No groups yet'}
               </h3>
               <p className="text-sm max-w-md">
-                {loading ? 'Please wait while we fetch your workspaces' : isStaff ? 'Create a new group to start collaborating with your team' : 'Join a group to start collaborating with your team'}
+                {loading ? 'Fetching workspaces...' : isStaff ? 'Create a group to begin.' : 'Wait for a teacher to add you to a group.'}
               </p>
             </div>
-            {!loading && isStaff && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-100 transition-all active:scale-95"
-              >
-                Create Your First Group
-              </button>
-            )}
           </div>
         )}
       </div>

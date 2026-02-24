@@ -6,7 +6,7 @@ import { supabase } from '../../../supabaseClient';
 
 
 interface ChatViewProps {
-  groupId: string | number;
+  groupId: string;
 }
 
 // File type icons component
@@ -35,51 +35,52 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-useEffect(() => {
-  const getUserId = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUserId(user?.id || null);
-  };
-  getUserId();
-}, []);
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getUserId();
+  }, []);
 
   // Fetch messages from the backend
   const fetchMessages = async () => {
-    if (!groupId) return;
-    try {
-      const { data, error } = await supabase
-        .from('api_chat')
-        .select(`
-          id,
-          text,
-          created_at,
-          user_id,
-          api_user ( username )
-        `)
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true });
+      if (!groupId) return;
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select(`
+            id,
+            text,
+            created_at,
+            user_id,
+            users ( full_name )
+          `)
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const formattedMessages = data.map(msg => {
-        const userData: any = Array.isArray(msg.api_user) ? msg.api_user[0] : msg.api_user;
-        const name = userData?.username || 'Unknown';
-        
-        return {
-          id: msg.id,
-          text: msg.text,
-          timestamp: msg.created_at,
-          sender_name: userData?.username || 'Unknown',
-          is_self: msg.user_id === currentUserId,
-          sender_initials: name.charAt(0).toUpperCase()
-        };
-      });
+        const formattedMessages: Message[] = (data || []).map(msg => {
+          // Handle the join array/object mismatch
+          const userData = Array.isArray(msg.users) ? msg.users[0] : msg.users;
+          const name = userData?.full_name || 'Unknown';
 
-      setMessages(formattedMessages);
-    } catch (err) {
-      console.error('Error loading chat:', err);
-    }
-  };
+          return {
+            id: msg.id,
+            text: msg.text,
+            timestamp: msg.created_at,
+            sender_name: name,
+            is_self: msg.user_id === currentUserId,
+            sender_initials: name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+          };
+        });
+
+        setMessages(formattedMessages); // This actually updates the UI
+      } catch (err) {
+        console.error('Error loading chat:', err);
+      }
+    };
 
 
   // Load messages and documents when group changes
@@ -89,25 +90,15 @@ useEffect(() => {
 
     // Subscribe to real-time changes
     const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'api_chat',
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => {
-          fetchMessages(); // Refresh when a new message is inserted
-        }
+      .channel(`room:${groupId}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `group_id=eq.${groupId}` },
+        () => fetchMessages()
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [groupId, currentUserId]); // Added currentUserId to dependencies
+    return () => { supabase.removeChannel(channel); };
+  }, [groupId, currentUserId]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -145,43 +136,30 @@ useEffect(() => {
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || sending) return;
+  e.preventDefault();
+  if (!newMessage.trim() || sending || !currentUserId) return;
 
-    setSending(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { data, error } = await supabase
-        .from('api_chat')
-        .insert([
-          { 
-            text: newMessage, 
-            group_id: groupId, 
-            user_id: user?.id 
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Immediately add to UI for snappiness
-      setMessages((prev) => [...prev, { 
-        id: data.id, 
-        text: data.text, 
-        timestamp: data.created_at, 
-        is_self: true,
-        sender_name: 'You',
-        sender_initials: 'Y',
+  setSending(true);
+  try {
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert([{ 
+        text: newMessage, 
+        group_id: groupId, 
+        user_id: currentUserId 
       }]);
-      setNewMessage('');
-    } catch (err) {
-      console.error('Failed to send:', err);
-    } finally {
-      setSending(false);
-    }
-  };
+
+    if (error) throw error;
+    
+    setNewMessage('');
+    fetchMessages(); 
+    
+  } catch (err) {
+    console.error('Failed to send:', err);
+  } finally {
+    setSending(false);
+  }
+};
 
   // Fetch documents from Supabase
   const fetchDocuments = async () => {

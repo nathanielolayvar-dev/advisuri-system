@@ -46,11 +46,22 @@ export const GroupModal: React.FC<GroupModalProps> = ({
     setError(null);
 
     try {
+    const { data: authData } = await supabase.auth.getUser();
+      const currentUserId = authData.user?.id;
+
+      if (!currentUserId) {
+        setError("You must be logged in to create a group.");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Insert using the correct column names: group_name and created_by
       const { data, error: supabaseError } = await supabase
-        .from('api_group')
+        .from('groups')
         .insert([{ 
-          name: name.trim(), 
-          course: course.trim() 
+          group_name: name.trim(), // Matches your SQL 'group_name'
+          course: course.trim(), 
+          created_by: currentUserId // Link the group to the teacher
         }])
         .select()
         .single();

@@ -26,11 +26,10 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     name: string; 
     role: string; 
     id: string;
-    isStaff: boolean;
+    isStaff: boolean; // We will derive this from the role string
     email?: string;
-    firstName?: string;
-    lastName?: string;
   } | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [isHovered, setHovered] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -41,78 +40,48 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return saved !== null ? JSON.parse(saved) : true;
   });
 
-  // Stable fetch function using useCallback
   const getUserProfile = useCallback(async (signal?: AbortSignal) => {
     try {
-      // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-      if (sessionError) {
-        console.error('Session error:', sessionError);
+      if (sessionError || !session?.user) {
+        setLoading(false);
         return;
       }
 
-      const authUser = session?.user;
-        
-      if (authUser) {
-        console.log('Auth user ID:', authUser.id);
-          
-        // Fetch user profile from api_user table
-        const { data, error } = await supabase
-          .from("api_user")
-          .select("id, username, first_name, last_name, email, is_staff, role")
-          .eq("id", authUser.id)
-          .single();
-            
-        // Check if request was aborted
-        if (signal?.aborted) return;
-            
-        console.log('api_user query result:', { data, error });
-            
-        if (data && !error) {
-          const isStaffUser = data.is_staff === true;
-          setUserData({
-            name: data.username || data.first_name || 'User',
-            role: isStaffUser ? 'Teacher' : 'Student',
-            id: data.id,
-            isStaff: isStaffUser,
-            email: data.email,
-            firstName: data.first_name,
-            lastName: data.last_name
-          });
-            
-          console.log('User profile loaded:', { 
-            username: data.username, 
-            isStaff: isStaffUser,
-            role: isStaffUser ? 'Teacher' : 'Student'
-          });
-        } else if (error) {
-          console.error('Error fetching user profile:', error.code, error.message);
-            
-          // Only set as student if it's a "not found" error
-          if (error.code === 'PGRST116') {
-            console.log('User not found in api_user table - creating default');
-            setUserData({
-              name: authUser.email?.split('@')[0] || 'User',
-              role: 'Student',
-              id: authUser.id,
-              isStaff: false,
-              email: authUser.email
-            });
-          } else {
-            // Other error - use auth email as fallback
-            setUserData({
-              name: authUser.email?.split('@')[0] || 'User',
-              role: 'Student',
-              id: authUser.id,
-              isStaff: false,
-              email: authUser.email
-            });
-          }
-        }
+      const authUser = session.user;
+
+      // FETCH FROM NEW 'users' TABLE
+      const { data, error } = await supabase
+        .from("users") // Changed from api_user
+        .select("user_id, full_name, email, role")
+        .eq("user_id", authUser.id)
+        .single();
+
+      if (signal?.aborted) return;
+
+      if (data && !error) {
+        // Logic: Role is Teacher if the string matches 'teacher'
+        const isTeacherRole = data.role?.toLowerCase() === 'teacher';
+
+        setUserData({
+          name: data.full_name || 'User',
+          role: isTeacherRole ? 'Teacher' : 'Student',
+          id: data.user_id,
+          isStaff: isTeacherRole, 
+          email: data.email,
+        });
+      } else {
+        // Fallback if data is missing or error occurs
+        setUserData({
+          name: authUser.email?.split('@')[0] || 'User',
+          role: 'Student',
+          id: authUser.id,
+          isStaff: false,
+          email: authUser.email
+        });
       }
     } catch (err) {
-      // Ignore abort errors
       if (err instanceof Error && err.name === 'AbortError') return;
       console.error("Error in SidebarContext:", err);
     }

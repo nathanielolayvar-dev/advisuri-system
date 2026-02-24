@@ -1,25 +1,11 @@
-/**
- * UserProfileContext - Provides user profile data and isTeacher status
- * 
- * This context fetches and manages the current user's profile from Supabase.
- * It provides:
- * - isTeacher: boolean indicating if user is a teacher (is_staff = true)
- * - profile: the full user profile data
- * - loading: loading state while fetching profile
- * - refreshProfile: function to refresh the profile data
- */
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
 interface UserProfile {
-  id: string;
-  username: string;
+  user_id: string;
+  full_name: string; 
   email: string;
-  first_name: string;
-  last_name: string;
-  is_staff: boolean;
-  role: string;
+  role: string;    
 }
 
 interface UserProfileContextType {
@@ -59,27 +45,19 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return;
       }
 
-      // Fetch user profile from api_user table
+      //Fetch from 'users' table (your master table)
       const { data, error: profileError } = await supabase
-        .from('api_user')
-        .select('id, username, email, first_name, last_name, is_staff, role')
-        .eq('id', authUser.id)
+        .from('users')
+        .select('user_id, full_name, email, role')
+        .eq('user_id', authUser.id)
         .single();
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
         
-        // If user not found, create default
+        // Handle missing profile case
         if (profileError.code === 'PGRST116') {
-          setProfile({
-            id: authUser.id,
-            username: authUser.email?.split('@')[0] || 'User',
-            email: authUser.email || '',
-            first_name: '',
-            last_name: '',
-            is_staff: false,
-            role: 'student'
-          });
+          setProfile(null);
         } else {
           setError(profileError.message);
         }
@@ -94,14 +72,21 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  // Fetch profile on mount
   useEffect(() => {
     fetchProfile();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+        fetchProfile();
+    });
+
+    return () => {
+        authListener.subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const value: UserProfileContextType = {
     profile,
-    isTeacher: profile?.is_staff === true,
+    isTeacher: profile?.role === 'teacher',
     loading,
     error,
     refreshProfile: fetchProfile
