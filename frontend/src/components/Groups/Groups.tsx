@@ -4,12 +4,12 @@ import { GroupTabs } from './GroupTabs';
 import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
 import { ChatView } from './views/ChatView';
-import { NotesView } from './views/NotesView';
+import { TasksView } from './views/TasksView';
 import { TimelineView } from './views/TimelineView';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
 
-type ViewType = 'chat' | 'notes' | 'timeline';
+type ViewType = 'chat' | 'tasks' | 'timeline';
 
 const MemberStack = ({ members }: { members: any[] }) => {
   const displayLimit = 4;
@@ -174,11 +174,11 @@ export const Groups = () => {
               </div>
 
               <div className="flex gap-6 mt-6 -mb-px">
-                {[
+                {([
                   { id: 'chat', icon: MessageSquare, label: 'Chat & Docs' },
-                  { id: 'notes', icon: FileText, label: 'Notes' },
+                  { id: 'tasks', icon: FileText, label: 'Tasks' },
                   { id: 'timeline', icon: Clock, label: 'Timeline' },
-                ].map(({ id, icon: Icon, label }) => (
+                ]).map(({ id, icon: Icon, label }) => (
                   <button
                     key={id}
                     onClick={() => setActiveView(id as ViewType)}
@@ -198,7 +198,7 @@ export const Groups = () => {
             <div className="flex-1 overflow-hidden p-6">
               <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
-                {activeView === 'notes' && <NotesView groupId={selectedGroupId} />}
+                {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id} />}
                 {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} />}
               </div>
             </div>
