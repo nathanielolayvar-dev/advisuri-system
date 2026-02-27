@@ -1,27 +1,36 @@
 /**
- * useUser Hook - Fetches and manages the current logged-in user's profile
- * 
- * This hook retrieves the current user's data from the Supabase auth session
- * and fetches their profile from the api_user table.
- * 
- * Security Logic:
- * - Teachers (Staff): is_staff === true - can CREATE groups and ADD members
- * - Students: is_staff === false - can only READ groups and see members
- * 
+ * useUser Hook — Fetches and manages the current logged-in user's profile
+ *
+ * Queries the `users` Supabase table (non-prefixed).
+ * Column mapping:
+ *   users.user_id   → unique identifier (UUID, matches auth.uid())
+ *   users.full_name → display name
+ *   users.role      → 'admin' | 'teacher' | 'student'
+ *
+ * Permission helpers:
+ *   isAdmin   → role === 'admin'
+ *   isTeacher → role === 'teacher'
+ *   isStudent → role === 'student'
+ *   isStaff   → role === 'admin' || role === 'teacher'
+ *
  * Usage:
- * const { user, isStaff, isLoading, error, refreshUser } = useUser();
+ *   const { user, isStaff, isAdmin, isTeacher, isStudent, isLoading, error, refreshUser } = useUser();
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { ApiUser } from '../shared/types';
+import { SupabaseUser } from '../shared/types';
 
 export interface UseUserReturn {
-  /** The current user's profile data from api_user table */
-  user: ApiUser | null;
-  /** Whether the user is a staff member (teacher) */
+  /** The current user's profile data from the users table */
+  user: SupabaseUser | null;
+  /** Whether the user is an admin or teacher (can manage groups/tasks) */
   isStaff: boolean;
-  /** Whether the user is a student (non-staff) */
+  /** Whether the user is an admin */
+  isAdmin: boolean;
+  /** Whether the user is a teacher */
+  isTeacher: boolean;
+  /** Whether the user is a student */
   isStudent: boolean;
   /** Loading state while fetching user data */
   isLoading: boolean;
@@ -29,25 +38,20 @@ export interface UseUserReturn {
   error: Error | null;
   /** Function to refresh the user data */
   refreshUser: () => Promise<void>;
-  /** The Supabase auth user ID */
+  /** The Supabase auth user ID (same as user.user_id) */
   authId: string | null;
 }
 
 export function useUser(): UseUserReturn {
-  const [user, setUser] = useState<ApiUser | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  /**
-   * Fetch the current user from Supabase auth and then get their profile
-   * from the api_user table
-   */
   const fetchUser = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Get the current authenticated user from Supabase
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
       if (authError) {
@@ -58,7 +62,6 @@ export function useUser(): UseUserReturn {
       }
 
       if (!session?.user) {
-        // No authenticated user
         setUser(null);
         setIsLoading(false);
         return;
@@ -66,33 +69,33 @@ export function useUser(): UseUserReturn {
 
       const authId = session.user.id;
 
-      // Fetch the user's profile from api_user table
+      // Fetch the user's profile from the `users` table
       const { data: userData, error: userError } = await supabase
-        .from('api_user')
-        .select('*')
-        .eq('id', authId)
+        .from('users')
+        .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+        .eq('user_id', authId)
         .single();
 
       if (userError) {
         console.error('Error fetching user profile:', userError);
-        
-        // If user doesn't exist in api_user, create a basic profile from auth
+
+        // If user doesn't exist in users table yet, create a basic profile from auth
         if (userError.code === 'PGRST116') {
-          const basicUser: ApiUser = {
-            id: authId,
-            username: session.user.email?.split('@')[0] || 'Unknown',
+          const basicUser: SupabaseUser = {
+            user_id: authId,
+            full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Unknown',
             email: session.user.email || '',
-            first_name: '',
-            last_name: '',
-            is_staff: false,
-            role: 'student'
+            role: 'student',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            profile_picture_url: null,
           };
           setUser(basicUser);
         } else {
           setError(new Error(`Failed to fetch user: ${userError.message}`));
         }
       } else {
-        setUser(userData as ApiUser);
+        setUser(userData as SupabaseUser);
       }
     } catch (err) {
       console.error('Unexpected error in useUser:', err);
@@ -102,14 +105,12 @@ export function useUser(): UseUserReturn {
     }
   }, []);
 
-  // Fetch user on mount
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
-  // Listen for auth changes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
         await fetchUser();
       }
@@ -122,12 +123,14 @@ export function useUser(): UseUserReturn {
 
   return {
     user,
-    isStaff: user?.is_staff === true,
-    isStudent: user?.is_staff === false,
+    isAdmin: user?.role === 'admin',
+    isTeacher: user?.role === 'teacher',
+    isStudent: user?.role === 'student',
+    isStaff: user?.role === 'admin' || user?.role === 'teacher',
     isLoading,
     error,
     refreshUser: fetchUser,
-    authId: user?.id || null
+    authId: user?.user_id || null,
   };
 }
 

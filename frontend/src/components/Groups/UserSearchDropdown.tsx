@@ -3,9 +3,9 @@ import { Search, UserPlus, Loader2, Users } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface User {
-  id: number;
-  username: string;
-  full_name?: string;
+  user_id: string;
+  full_name: string;
+  email?: string;
 }
 
 interface Props {
@@ -51,22 +51,22 @@ export const UserSearchDropdown = ({
 
     setLoading(true);
     try {
-      // Query the 'users' table - use 'id' as primary key (matching Supabase convention)
+      // Query the 'users' table using user_id (UUID) as primary key
       const { data, error: searchError } = await supabase
-        .from('users') 
-        .select('id, full_name, username')
-        .eq('role', 'student') // Filter for students only
-        .or(`username.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
+        .from('users')
+        .select('user_id, full_name, email')
+        .eq('role', 'student')
+        .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
         .limit(8);
 
       if (searchError) throw searchError;
 
       // Filter out already added members
       const formatted = (data || []).map((u: any) => ({
-        id: u.id,
-        username: u.username,
-        full_name: u.full_name
-      })).filter(u => !currentMemberIds.has(String(u.id)));
+        user_id: u.user_id,
+        full_name: u.full_name,
+        email: u.email
+      })).filter(u => !currentMemberIds.has(u.user_id));
 
       setResults(formatted);
       setIsOpen(true);
@@ -88,16 +88,16 @@ export const UserSearchDropdown = ({
     }
   }, [query, searchUsers]);
 
-  const handleAdd = async (userId: number) => {
-    setAddingId(String(userId));
+  const handleAdd = async (userId: string) => {
+    setAddingId(userId);
     setError(null);
 
     try {
       const { error: addError } = await supabase
         .from('group_members')
-        .insert([{ 
-          group_id: Number(groupId), 
-          user_id: userId 
+        .insert([{
+          group_id: groupId,
+          user_id: userId
         }]);
 
       if (addError) throw addError;
@@ -132,16 +132,16 @@ export const UserSearchDropdown = ({
         <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
           {results.map((user) => (
             <button
-              key={user.id}
-              onClick={() => handleAdd(user.id)}
-              disabled={addingId === String(user.id)}
+              key={user.user_id}
+              onClick={() => handleAdd(user.user_id)}
+              disabled={addingId === user.user_id}
               className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-left transition-colors"
             >
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-slate-700">{user.full_name}</span>
-                <span className="text-xs text-slate-400">@{user.username}</span>
+                <span className="text-xs text-slate-400">{user.email}</span>
               </div>
-              {addingId === String(user.id) ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+              {addingId === user.user_id ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
             </button>
           ))}
         </div>

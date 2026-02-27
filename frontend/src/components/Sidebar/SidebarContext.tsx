@@ -12,11 +12,14 @@ interface SidebarContextType {
     role: string; 
     id: string;
     isStaff: boolean;
+    isAdmin: boolean;
     email?: string;
     firstName?: string;
     lastName?: string;
   } | null;
   loading: boolean;
+  isAdminPanelOpen: boolean;
+  setAdminPanelOpen: (value: boolean) => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -26,13 +29,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     name: string; 
     role: string; 
     id: string;
-    isStaff: boolean; // We will derive this from the role string
+    isStaff: boolean;
+    isAdmin: boolean;
     email?: string;
   } | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [isHovered, setHovered] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [isAdminPanelOpen, setAdminPanelOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const [isPinned, setIsPinned] = useState<boolean>(() => {
@@ -63,12 +68,14 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (data && !error) {
         // Logic: Role is Teacher if the string matches 'teacher'
         const isTeacherRole = data.role?.toLowerCase() === 'teacher';
+        const isAdminRole = data.role?.toLowerCase() === 'admin';
 
         setUserData({
           name: data.full_name || 'User',
-          role: isTeacherRole ? 'Teacher' : 'Student',
+          role: isAdminRole ? 'Admin' : (isTeacherRole ? 'Teacher' : 'Student'),
           id: data.user_id,
-          isStaff: isTeacherRole, 
+          isStaff: isTeacherRole || isAdminRole, 
+          isAdmin: isAdminRole,
           email: data.email,
         });
       } else {
@@ -78,6 +85,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
           role: 'Student',
           id: authUser.id,
           isStaff: false,
+          isAdmin: false,
           email: authUser.email
         });
       }
@@ -138,7 +146,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <SidebarContext.Provider 
-      value={{ isPinned, togglePin, setIsPinned, isHovered, setHovered, userData, loading }}
+      value={{ isPinned, togglePin, setIsPinned, isHovered, setHovered, userData, loading, isAdminPanelOpen, setAdminPanelOpen }}
     >
       {children}
     </SidebarContext.Provider>

@@ -165,9 +165,9 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
   const fetchDocuments = async () => {
     if (!groupId) return;
     try {
-      const { data, error } = await supabase
-        .from('api_documents')
-        .select('*')
+const { data, error } = await supabase
+  .from('documents')
+  .select('*')
         .eq('group_id', groupId);
 
       if (error) throw error;
@@ -179,9 +179,9 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
 
   const handleDeleteDocument = async (docId: string | number) => {
     try {
-      const { error } = await supabase
-        .from('api_documents')
-        .delete()
+const { error } = await supabase
+  .from('documents')
+  .delete()
         .eq('id', docId);
 
       if (error) throw error;

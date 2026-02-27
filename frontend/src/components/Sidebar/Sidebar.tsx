@@ -9,6 +9,7 @@ import {
   Users,
   Pin,
   PinOff,
+  Shield,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -44,6 +45,7 @@ export const Sidebar: React.FC = () => {
 
   // Determine role for UI labels
   const userRole = userData?.role || 'Student';
+  const isAdminUser = userData?.isAdmin === true;
 
   return (
     <aside
@@ -58,7 +60,7 @@ export const Sidebar: React.FC = () => {
         <div className="flex items-center justify-between mb-10 px-1">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-100 flex-shrink-0">
-              {userRole === 'Teacher' ? 'T' : 'S'}
+              {userRole === 'Admin' ? 'A' : (userRole === 'Teacher' ? 'T' : 'S')}
             </div>
             <span className={`font-bold text-[#1E293B] text-lg tracking-tight whitespace-nowrap transition-all duration-300
               ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}
@@ -98,6 +100,19 @@ export const Sidebar: React.FC = () => {
             active={isActive('/analytics')}
             onClick={() => navigate('/analytics')}
           />
+          {/* Admin Link - Only visible for admin users */}
+          {isAdminUser && (
+            <NavItem
+              icon={<Shield size={22} />}
+              label="Admin"
+              isPinned={isExpanded}
+              active={isActive('/admin')}
+              onClick={() => navigate('/admin')}
+            />
+          )}
+          
+          <div className={`my-2 border-t border-[#E2E8F0] ${isExpanded ? '' : 'mx-2'}`} />
+          
           <NavItem
             icon={<Users size={22} />}
             label="Groups"

@@ -17,10 +17,10 @@ import { useUserProfile } from '../../contexts/UserProfileContext';
 import { Loader2, Users, Check, X, Plus } from 'lucide-react';
 
 interface Student {
-  id: string;
-  username: string;
-  first_name: string;
-  last_name: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
 }
 
 interface GroupCreatorFormProps {
@@ -46,10 +46,10 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
     setStudentsLoading(true);
     try {
       const { data, error: fetchError } = await supabase
-        .from('api_user')
-        .select('id, username, first_name, last_name')
-        .eq('is_staff', false)
-        .order('username', { ascending: true });
+        .from('users')
+        .select('user_id, full_name, email, role')
+        .eq('role', 'student')
+        .order('full_name', { ascending: true });
 
       if (fetchError) {
         console.error('Error fetching students:', fetchError);
@@ -268,24 +268,24 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
                 ) : (
                   <ul>
                     {students.map((student) => (
-                      <li 
-                        key={student.id}
-                        onClick={() => toggleStudent(student.id)}
+                      <li
+                        key={student.user_id}
+                        onClick={() => toggleStudent(student.user_id)}
                         className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            selectedStudents.has(student.id) 
-                              ? 'bg-blue-500 border-blue-500' 
+                            selectedStudents.has(student.user_id)
+                              ? 'bg-blue-500 border-blue-500'
                               : 'border-slate-300'
                           }`}>
-                            {selectedStudents.has(student.id) && <Check className="w-3 h-3 text-white" />}
+                            {selectedStudents.has(student.user_id) && <Check className="w-3 h-3 text-white" />}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-slate-700">
-                              {[student.first_name, student.last_name].filter(Boolean).join(' ') || student.username}
+                              {student.full_name}
                             </p>
-                            <p className="text-xs text-slate-400">@{student.username}</p>
+                            <p className="text-xs text-slate-400">{student.email}</p>
                           </div>
                         </div>
                       </li>
@@ -300,16 +300,16 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
           {selectedStudents.size > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {students
-                .filter(s => selectedStudents.has(s.id))
+                .filter(s => selectedStudents.has(s.user_id))
                 .map(student => (
-                  <span 
-                    key={student.id}
+                  <span
+                    key={student.user_id}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg"
                   >
-                    {student.username}
+                    {student.full_name}
                     <button
                       type="button"
-                      onClick={() => toggleStudent(student.id)}
+                      onClick={() => toggleStudent(student.user_id)}
                       className="hover:text-blue-900"
                     >
                       <X className="w-3 h-3" />

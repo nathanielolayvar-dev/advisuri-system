@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Clock, User, Plus, ArrowLeft, Trash2, Paperclip, X, MoreVertical } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 import '../../../styles/NotesView.css';
-import { TimelineTask, TaskNote, Document } from '../../../shared/types';
+import { SupabaseTask, SupabaseTaskNote, SupabaseAttachment, Document } from '../../../shared/types';
 
 interface TasksViewProps {
   groupId: string | number;
@@ -11,11 +11,11 @@ interface TasksViewProps {
 }
 
 export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
-  const [tasks, setTasks] = useState<TimelineTask[]>([]);
-  const [selectedTask, setSelectedTask] = useState<TimelineTask | null>(null);
+  const [tasks, setTasks] = useState<SupabaseTask[]>([]);
+  const [selectedTask, setSelectedTask] = useState<SupabaseTask | null>(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: '', status: '', due_date: '' });
-  const [notes, setNotes] = useState<TaskNote[]>([]);
+  const [notes, setNotes] = useState<SupabaseTaskNote[]>([]);
   const [noteContent, setNoteContent] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -38,7 +38,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const fetchTasks = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('api_task')
+      .from('tasks')
       .select('*')
       .eq('group_id', groupId)
       .order('created_at', { ascending: false });
@@ -49,7 +49,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title) return;
-    const { error } = await supabase.from('api_task').insert([
+    const { error } = await supabase.from('tasks').insert([
       {
         title: newTask.title,
         description: newTask.description,
@@ -67,16 +67,16 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     }
   };
 
-  const openTask = (task: TimelineTask) => {
+  const openTask = (task: SupabaseTask) => {
     setSelectedTask(task);
     fetchNotes(task.id);
     fetchSubmissions(task.id);
   };
 
-  const fetchNotes = async (taskId: number) => {
+  const fetchNotes = async (taskId: string) => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('api_tasknote')
+      .from('tasknotes')
       .select('*, users ( full_name )')
       .eq('task_id', taskId)
       .order('created_at', { ascending: false });
@@ -84,10 +84,10 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     setLoading(false);
   };
 
-  const fetchSubmissions = async (taskId: number) => {
+  const fetchSubmissions = async (taskId: string) => {
     const { data, error } = await supabase
-      .from('api_submission')
-      .select('*, api_attachment(*)')
+      .from('submissions')
+      .select('*, attachments(*)')
       .eq('task_id', taskId)
       .order('version_number', { ascending: false });
     if (!error) setSubmissions(data || []);
@@ -96,7 +96,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const handleNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTask || !noteContent) return;
-    await supabase.from('api_tasknote').insert([
+    await supabase.from('tasknotes').insert([
       {
         content: noteContent,
         task_id: selectedTask.id,
@@ -162,7 +162,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
       // 2. Create the Submission Container
       const { data: submissionData, error: subError } = await supabase
-        .from('api_submission')
+        .from('submissions')
         .insert({
           task_id: selectedTask.id,
           submitted_by: userId,
@@ -198,7 +198,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       const attachmentsData = await Promise.all(uploadPromises);
       
       // 5. Link the attachments in the database
-      const { error: attachError } = await supabase.from('api_attachment').insert(attachmentsData);
+      const { error: attachError } = await supabase.from('attachments').insert(attachmentsData);
       if (attachError) throw attachError;
 
       // Success! Clear the queue.
@@ -212,7 +212,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       if (createdSubmissionId) {
         console.log("Upload failed. Rolling back empty submission container...");
         await supabase
-          .from('api_submission')
+          .from('submissions')
           .delete()
           .eq('id', createdSubmissionId);
       }
@@ -230,8 +230,8 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     try {
       // 1. Save the feedback and status to the specific submission attempt
       const { error: subError } = await supabase
-        .from('api_submission')
-        .update({ 
+        .from('submissions')
+        .update({
           overall_feedback: feedback, 
           is_accepted: isAccepted 
         })
@@ -241,8 +241,8 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
       // 2. Update the main task with the final score
       const { error: taskError } = await supabase
-        .from('api_task')
-        .update({ 
+        .from('tasks')
+        .update({
           status: isAccepted ? 'completed' : 'in-progress',
           final_score: taskScore === '' ? null : taskScore 
         })
@@ -251,10 +251,10 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       if (taskError) throw taskError;
 
       // 3. Update UI
-      setSelectedTask(prev => prev ? { 
-        ...prev, 
-        status: isAccepted ? 'completed' : 'in-progress', 
-        final_score: taskScore === '' ? null : taskScore 
+      setSelectedTask(prev => prev ? {
+        ...prev,
+        status: (isAccepted ? 'completed' : 'in-progress') as 'completed' | 'in-progress' | 'pending',
+        final_score: taskScore === '' ? undefined : (taskScore as number)
       } : null);
       
       setActiveGradingSub(null); // Close the sidebar
@@ -280,9 +280,9 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
   const handleEditTask = async () => {
     if (!editTask) return;
-    const { error } = await supabase.from('api_task').update(editFields).eq('id', editTask.id);
+    const { error } = await supabase.from('tasks').update(editFields).eq('id', editTask.id);
     if (!error) {
-      setSelectedTask((prev) => (prev ? { ...prev, ...editFields } : null));
+      setSelectedTask((prev) => (prev ? { ...prev, ...editFields, priority: editFields.priority as 'low' | 'medium' | 'high' } : null));
       setEditTask(null);
       fetchTasks();
     }
@@ -291,11 +291,11 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedTask) return;
     const { error } = await supabase
-      .from('api_task')
+      .from('tasks')
       .update({ status: newStatus })
       .eq('id', selectedTask.id);
     if (!error) {
-      setSelectedTask({ ...selectedTask, status: newStatus });
+      setSelectedTask({ ...selectedTask, status: newStatus as 'pending' | 'in-progress' | 'completed' });
       fetchTasks();
     }
   };
@@ -309,7 +309,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       try {
         // STEP 1: Find all submissions for this task
         const { data: subs, error: subsError } = await supabase
-          .from('api_submission')
+          .from('submissions')
           .select('id')
           .eq('task_id', selectedTask.id);
 
@@ -320,7 +320,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
           // STEP 2: Find all attachments linked to those submissions
           const { data: attachments, error: attachError } = await supabase
-            .from('api_attachment')
+            .from('attachments')
             .select('file_url')
             .in('submission_id', subIds);
 
@@ -346,7 +346,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
         // STEP 4: Delete the Task from the database
         // (Because of ON DELETE CASCADE, this also deletes the rows in api_submission, api_attachment, and api_tasknote)
         const { error: dbError } = await supabase
-          .from('api_task')
+          .from('tasks')
           .delete()
           .eq('id', selectedTask.id);
 
@@ -365,9 +365,9 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     }
   };
 
-  const handleDeleteNote = async (noteId: number) => {
+  const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
-      const { error } = await supabase.from('api_tasknote').delete().eq('id', noteId);
+      const { error } = await supabase.from('tasknotes').delete().eq('id', noteId);
       if (!error && selectedTask) fetchNotes(selectedTask.id);
     }
   };
@@ -387,7 +387,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
             
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-2xl font-bold mb-1 text-slate-800">{selectedTask.title || selectedTask.task_name}</h2>
+                <h2 className="text-2xl font-bold mb-1 text-slate-800">{selectedTask.title}</h2>
                 <p className="text-slate-600">{selectedTask.description}</p>
               </div>
               
@@ -582,7 +582,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                 {notes.map((note) => (
                   <div key={note.id} className="note-card p-4 border border-slate-200 rounded-lg mb-2 bg-slate-50 relative group">
                     <p className="text-sm text-slate-800 whitespace-pre-wrap pr-6">{note.content}</p>
-                    {(isStaff || String(note.author_id) === String(userId)) && (
+                    {(isStaff || note.author_id === userId) && (
                       <button 
                         onClick={() => handleDeleteNote(note.id)}
                         className="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -831,7 +831,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
-                    {task.title || task.task_name}
+                    {task.title}
                   </h3>
                   <p className="text-slate-600 text-sm line-clamp-2 mt-1">{task.description}</p>
                 </div>

@@ -1,5 +1,4 @@
 import { supabase } from '../supabaseClient';
-import { ApiGroup, ApiGroupMember } from '../shared/types';
 
 // ============================================================================
 // Types & Interfaces
