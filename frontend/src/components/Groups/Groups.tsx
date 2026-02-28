@@ -203,7 +203,7 @@ export const Groups = () => {
             <div className="flex-1 overflow-hidden p-6">
               <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
-                {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id} />}
+                {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
                 {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} />}
               </div>
             </div>
