@@ -6,6 +6,7 @@ import { UserSearchDropdown } from './UserSearchDropdown';
 import { ChatView } from './views/ChatView';
 import { TasksView } from './views/TasksView';
 import { TimelineView } from './views/TimelineView';
+import { VideoCall } from './views/VideoCall';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
 
@@ -45,6 +46,7 @@ export const Groups = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCall, setShowCall] = useState(false);
   
   const { userData } = useSidebar();
   const isStaff = userData?.isStaff === true;
@@ -163,7 +165,10 @@ export const Groups = () => {
                       isStaff={isStaff}
                     />
                   )}
-                  <button className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md transition-all">
+                  <button 
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md transition-all"
+                    onClick={() => setShowCall(true)}
+                  >
                     <Video size={18} />
                     Join Call
                   </button>
@@ -226,6 +231,15 @@ export const Groups = () => {
         onGroupCreated={handleGroupCreated}
         onClose={() => setIsModalOpen(false)}
         isOpen={isModalOpen}
+      />
+
+      <VideoCall 
+        isOpen={showCall} 
+        onClose={() => setShowCall(false)} 
+        groupName={groups.find(g => g.id === selectedGroupId)?.name || 'Group Call'}
+        groupId={selectedGroupId || undefined}
+        currentUserId={userData?.id}
+        currentUserName={userData?.name || 'You'}
       />
     </div>
   );
