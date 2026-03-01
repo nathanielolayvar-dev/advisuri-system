@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Loader2,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
@@ -119,6 +120,13 @@ export default function AdminPanel() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [newRole, setNewRole] = useState<'admin' | 'teacher' | 'student'>('student');
   const [roleUpdating, setRoleUpdating] = useState(false);
+
+  // Add User Modal state
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserFullName, setNewUserFullName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'student'>('student');
+  const [addUserLoading, setAddUserLoading] = useState(false);
 
   // Notification form state
   const [notifType, setNotifType] = useState<'Emergency' | 'Announcement' | 'Newsletter'>('Announcement');
@@ -355,6 +363,60 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserEmail.trim() || !newUserFullName.trim()) return;
+    setAddUserLoading(true);
+
+    try {
+      // Use Supabase's signUp function to create user
+      // This sends a confirmation email to the user
+      const { data, error } = await supabase.auth.signUp({
+        email: newUserEmail.trim(),
+        password: Math.random().toString(36).slice(-12), // Temporary random password
+        options: {
+          data: {
+            full_name: newUserFullName.trim(),
+          }
+        }
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('Failed to create user');
+
+      // Update user role in users table
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ role: newUserRole })
+        .eq('user_id', data.user.id);
+
+      if (updateError) {
+        console.warn('Could not update role in users table:', updateError);
+      }
+
+      // Log audit action
+      await logAuditAction(
+        `Created new user with role ${newUserRole}`,
+        `User: ${newUserFullName} (${newUserEmail})`
+      );
+
+      // Reset form and refresh
+      setNewUserEmail('');
+      setNewUserFullName('');
+      setNewUserRole('student');
+      setShowAddUserModal(false);
+      fetchUsers();
+      fetchStats();
+      
+      alert('User created successfully! A confirmation email has been sent to ' + newUserEmail);
+    } catch (err: any) {
+      console.error('Error adding user:', err);
+      alert(err.message || 'Failed to add user');
+    } finally {
+      setAddUserLoading(false);
+    }
+  };
+
   // ============================================================================
   // Filtered users
   // ============================================================================
@@ -468,6 +530,13 @@ export default function AdminPanel() {
                   </div>
                   <button onClick={fetchUsers} className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors">
                     <RefreshCw className="w-4 h-4" /> Refresh
+                  </button>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-sm hover:shadow-md transition-shadow"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add User
                   </button>
                 </div>
               </div>
@@ -1017,6 +1086,79 @@ export default function AdminPanel() {
                 {roleUpdating ? 'Updating...' : 'Update Role'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Add New User
+              </h3>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="p-1 rounded-lg hover:bg-white/20 transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newUserFullName}
+                  onChange={(e) => setNewUserFullName(e.target.value)}
+                  placeholder="Enter full name..."
+                  className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="Enter email address..."
+                  className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Role</label>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'teacher' | 'student')}
+                  className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                >
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addUserLoading}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                >
+                  {addUserLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  {addUserLoading ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

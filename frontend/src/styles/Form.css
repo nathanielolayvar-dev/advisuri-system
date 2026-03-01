@@ -2,73 +2,133 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   margin: 50px auto;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 40px 30px; /* Increased padding for a more modern feel */
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   max-width: 400px;
+  background: white;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.form-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.form-subtitle {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: #64748B;
 }
 
 .form-input {
   width: 90%;
-  padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  font-size: 14px;
   box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2563EB;
 }
 
 .form-button {
   width: 95%;
-  padding: 10px;
-  margin: 20px 0;
-  background-color: #007bff;
+  padding: 12px;
+  margin: 16px 0;
+  background-color: #2563EB;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+  transition: background-color 0.2s;
 }
 
 .form-button:hover {
-  background-color: #0056b3;
+  background-color: #1D4ED8;
 }
 
-.google-button {
+.form-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.google-btn {
+  width: 100%; /* Changed from 95% to fill the container width */
+  padding: 10px 24px;
   background-color: white;
-  color: #757575;
-  border: 1px solid #ddd;
+  color: #1f1f1f; /* Darker, more professional text */
+  border: 1px solid #747775; /* The specific grey from the image */
+  border-radius: 100px; /* This creates the "Pill" shape from your image */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  margin-top: 10px;
-  font-weight: 500;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
 }
 
-.google-button:hover {
-  background-color: #f7f7f7;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.google-btn:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3);
 }
 
 .google-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
-
 .social-divider {
-  margin: 20px 0;
-  text-align: center;
-  position: relative;
-  color: #666;
-  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 24px 0;
+  color: #94A3B8;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.google-login-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+.social-divider::before,
+.social-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #E2E8F0;
+}
+
+.social-divider span {
+  padding: 0 10px;
+}
+
+/* Syncing your primary button to be more modern too */
+.form-button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background-color: #2563EB;
+  color: white;
+  border: none;
+  border-radius: 100px; /* Keeps the pill-shape consistent */
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.form-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #64748B;
+  font-size: 13px;
 }

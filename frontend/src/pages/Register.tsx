@@ -1,7 +1,15 @@
-import Form from '../components/Form';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
-  return <Form route="/api/user/register/" method="register" />;
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redirect to login since registration is disabled
+    navigate('/login');
+  }, [navigate]);
+
+  return null;
 }
 
 export default Register;
