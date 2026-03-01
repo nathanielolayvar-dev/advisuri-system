@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Calendar, CheckCircle2 } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
-import '../../../styles/TimelineView.css';
 
 interface TimelineTask {
   id: number;
@@ -62,7 +61,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     const tasksWithDueDate = tasks.filter(t => t.due_date);
     
     if (tasksWithDueDate.length === 0) {
-      // If no tasks have due dates, show all tasks with default range
       const today = new Date();
       return {
         dateRange: { 
@@ -73,19 +71,16 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
       };
     }
 
-    // Parse due dates and find range
     const dueDates = tasksWithDueDate.map(t => new Date(t.due_date!));
     const earliestDate = new Date(Math.min(...dueDates.map(d => d.getTime())));
     const latestDate = new Date(Math.max(...dueDates.map(d => d.getTime())));
 
-    // Add buffer: start from 2 days before earliest or today
     const startDate = new Date(earliestDate);
     startDate.setDate(startDate.getDate() - 2);
     if (startDate < new Date()) {
       startDate.setDate(new Date().getDate() - 1);
     }
 
-    // End 3 days after latest or at least 7 days from now
     const endDate = new Date(latestDate);
     endDate.setDate(endDate.getDate() + 3);
     const minEndDate = new Date();
@@ -94,7 +89,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
       endDate.setTime(minEndDate.getTime());
     }
 
-    // Sort tasks by due date
     const sorted = [...tasks].sort((a, b) => {
       if (!a.due_date) return 1;
       if (!b.due_date) return -1;
@@ -107,7 +101,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     };
   }, [tasks]);
 
-  // Generate array of dates for the timeline
   const timelineDates = useMemo(() => {
     const dates: Date[] = [];
     const current = new Date(dateRange.start);
@@ -118,7 +111,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     return dates;
   }, [dateRange]);
 
-  // Calculate day index for a task based on its due date
   const getTaskDayIndex = (dueDate?: string) => {
     if (!dueDate) return 0;
     const taskDate = new Date(dueDate);
@@ -127,7 +119,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     return Math.max(0, Math.floor((taskTime - startTime) / (1000 * 60 * 60 * 24)));
   };
 
-  // Calculate overall progress for the bottom bar
   const overallProgress =
     tasks.length > 0
       ? Math.round(
@@ -136,18 +127,15 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
         )
       : 0;
 
-  // Get nearest due date for the countdown
   const nearestDueDate = useMemo(() => {
     const tasksWithDueDate = tasks.filter(t => t.due_date);
     if (tasksWithDueDate.length === 0) return null;
-    
     const sorted = [...tasksWithDueDate].sort((a, b) => 
       new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime()
     );
     return new Date(sorted[0].due_date!);
   }, [tasks]);
 
-  // Calculate days remaining until nearest due date
   const daysRemaining = useMemo(() => {
     if (!nearestDueDate) return null;
     const today = new Date();
@@ -186,14 +174,6 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     return due < today;
   };
 
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case 'completed': return '#22C55E';
-      case 'in-progress': return '#3B82F6';
-      default: return '#94A3B8';
-    }
-  };
-
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'high': return '#EF4444';
@@ -203,122 +183,163 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
   };
 
   return (
-    <div className="timeline-container">
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h4 className="font-bold text-[#1E293B] flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#2563EB]" /> Project Timeline
-          </h4>
-          {daysRemaining !== null && (
-            <div className={`text-sm font-medium px-3 py-1 rounded-full ${
-              daysRemaining < 0 
-                ? 'bg-red-100 text-red-700' 
-                : daysRemaining === 0 
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-green-100 text-green-700'
-            }`}>
-              {daysRemaining < 0 
-                ? `${Math.abs(daysRemaining)} days overdue`
-                : daysRemaining === 0 
-                  ? 'Due today!'
-                  : `${daysRemaining} days until first deadline`
-              }
-            </div>
-          )}
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <Clock className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-800 text-lg">Project Timeline</h4>
+            <p className="text-xs text-slate-500">Track your group deadlines</p>
+          </div>
         </div>
+        
+        {daysRemaining !== null && (
+          <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full ${
+            daysRemaining < 0 
+              ? 'bg-red-100 text-red-700' 
+              : daysRemaining === 0 
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-green-100 text-green-700'
+          }`}>
+            <AlertCircle size={16} />
+            {daysRemaining < 0 
+              ? `${Math.abs(daysRemaining)} days overdue`
+              : daysRemaining === 0 
+                ? 'Due today!'
+                : `${daysRemaining} days remaining`
+            }
+          </div>
+        )}
+      </div>
 
-        {/* Gantt Chart */}
-        <div className="gantt-card">
-          <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
-              {/* Date Header Row */}
-              <div className="gantt-grid grid-header">
-                <div className="task-info-cell" />
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-6 bg-slate-50">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : sortedTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+              <Calendar className="w-8 h-8 text-slate-400" />
+            </div>
+            <p className="text-slate-500 font-medium">No tasks to display</p>
+            <p className="text-slate-400 text-sm mt-1">Create tasks to see your timeline</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Date Header Row */}
+            <div className="flex bg-slate-50 border-b border-slate-100">
+              <div className="w-56 flex-shrink-0 px-4 py-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Task</span>
+              </div>
+              <div className="flex-1 flex">
                 {timelineDates.map((date, i) => (
                   <div 
                     key={i} 
-                    className={`day-cell border-l border-[#E2E8F0] text-center ${
+                    className={`flex-1 text-center py-3 border-l border-slate-100 ${
                       isToday(date) ? 'bg-blue-50' : ''
                     }`}
                   >
-                    <div className={`text-xs ${isToday(date) ? 'text-blue-600 font-bold' : 'text-[#94A3B8]'}`}>
+                    <span className={`text-xs font-medium ${
+                      isToday(date) ? 'text-blue-600' : 'text-slate-500'
+                    }`}>
                       {formatDateHeader(date)}
-                    </div>
+                    </span>
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* Task Rows */}
-              <div className="divide-y divide-[#F1F5F9]">
-                {sortedTasks.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400">
-                    No tasks to display
-                  </div>
-                ) : (
-                  sortedTasks.map((task) => {
-                    const dayIndex = getTaskDayIndex(task.due_date);
-                    const maxDay = Math.max(timelineDates.length - 1, 1);
-                    const leftPercent = (dayIndex / maxDay) * 100;
-                    const widthPercent = Math.max(8, 100 / maxDay);
-                    const taskColor = task.status === 'completed' ? '#22C55E' : getPriorityColor(task.priority);
-                    
-                    return (
-                      <div key={task.id} className="gantt-grid task-row">
-                        <div className="task-info-cell">
-                          <h5 className="font-bold text-sm">{task.title}</h5>
-                          <p className="text-[10px] text-[#94A3B8]">
-                            {task.status === 'completed' ? 'Completed' : task.status === 'in-progress' ? 'In Progress' : 'Pending'} 
-                            • {task.progress_percentage || 0}%
-                            {task.due_date && (
-                              <span className={`ml-1 ${
-                                isOverdue(task.due_date) ? 'text-red-500' : ''
-                              }`}>
-                                • Due: {new Date(task.due_date).toLocaleDateString()}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="bar-container border-l border-[#E2E8F0] relative">
-                          {/* Task bar positioned by due date */}
-                          <div
-                            className="progress-bar absolute"
-                            style={{
-                              left: `${leftPercent}%`,
-                              width: `${widthPercent}%`,
-                              backgroundColor: isOverdue(task.due_date) && task.status !== 'completed' ? '#EF4444' : taskColor,
-                              opacity: isOverdue(task.due_date) && task.status !== 'completed' ? 0.8 : 1,
-                            }}
-                            title={task.due_date ? `Due: ${new Date(task.due_date).toLocaleDateString()}` : 'No due date'}
-                          >
-                            <div
-                              className="progress-fill"
-                              style={{ width: `${task.progress_percentage || 0}%` }}
-                            />
-                          </div>
+            {/* Task Rows */}
+            {sortedTasks.map((task) => {
+              const dayIndex = getTaskDayIndex(task.due_date);
+              const maxDay = Math.max(timelineDates.length - 1, 1);
+              const leftPercent = (dayIndex / maxDay) * 100;
+              const widthPercent = Math.max(10, 100 / maxDay);
+              const taskColor = task.status === 'completed' ? '#22C55E' : getPriorityColor(task.priority);
+              const isTaskOverdue = isOverdue(task.due_date) && task.status !== 'completed';
+              
+              return (
+                <div key={task.id} className="flex border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <div className="w-56 flex-shrink-0 px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: taskColor }}
+                      />
+                      <div>
+                        <h5 className="font-semibold text-sm text-slate-800">{task.title}</h5>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            task.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
+                          </span>
+                          <span className="text-xs text-slate-400">{task.progress_percentage || 0}%</span>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 relative h-16">
+                    {/* Background Grid */}
+                    <div className="absolute inset-0 flex">
+                      {timelineDates.map((_, i) => (
+                        <div key={i} className="flex-1 border-l border-slate-100" />
+                      ))}
+                    </div>
+                    
+                    {/* Task Bar */}
+                    <div
+                      className="absolute top-3 h-10 rounded-lg shadow-sm transition-all duration-300"
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        backgroundColor: isTaskOverdue ? '#EF4444' : taskColor,
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/10 rounded-lg" />
+                      <div
+                        className="h-full bg-black/10 rounded-lg"
+                        style={{ width: `${task.progress_percentage || 0}%` }}
+                      />
+                      {task.progress_percentage && task.progress_percentage > 20 && (
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+                          {task.progress_percentage}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
 
         {/* Footer Stats */}
-        <div className="stats-card">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-5 h-5 text-[#2563EB]" />
-            <span className="font-bold text-sm">Overall Progress</span>
+        {tasks.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                <span className="font-semibold text-slate-700">Overall Progress</span>
+              </div>
+              <span className="text-sm font-bold text-slate-800">{overallProgress}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                style={{ width: `${overallProgress}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600"
-              style={{ width: `${overallProgress}%` }}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

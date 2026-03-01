@@ -9,6 +9,7 @@ import { TimelineView } from './views/TimelineView';
 import { VideoCall } from './views/VideoCall';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
+import { useSearchParams } from 'react-router-dom';
 
 type ViewType = 'chat' | 'tasks' | 'timeline';
 
@@ -47,9 +48,27 @@ export const Groups = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCall, setShowCall] = useState(false);
+  const [searchParams] = useSearchParams();
   
   const { userData } = useSidebar();
   const isStaff = userData?.isStaff === true;
+
+  // Handle URL query params for navigation from dashboard
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    const view = searchParams.get('view');
+    
+    if (groupId && groups.length > 0) {
+      // Check if group exists in user's groups
+      const groupExists = groups.some(g => g.id === groupId);
+      if (groupExists) {
+        setSelectedGroupId(groupId);
+        if (view === 'tasks' || view === 'timeline' || view === 'chat') {
+          setActiveView(view);
+        }
+      }
+    }
+  }, [searchParams, groups]);
 
   const fetchGroups = async () => {
     if (!userData?.id) return;

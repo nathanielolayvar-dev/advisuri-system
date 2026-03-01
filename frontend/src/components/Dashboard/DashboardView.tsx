@@ -1,8 +1,9 @@
 // This is the layout/presentation layer
 
 import { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, Loader2, Calendar, Folder } from 'lucide-react';
+import { AlertCircle, Loader2, Calendar, Folder, Search } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 // Import Types
 import {
@@ -14,15 +15,12 @@ import {
 import {
   SortOrder,
   getPriorityColor,
-  getStatusColor,
   getAvatarColor,
 } from '../../shared/utils';
 
 //Component Imports
-import { TaskCard } from './ui/TaskCard';
 import { GanttChart } from './ui/GanttChart';
 import { AnnouncementsSidebar } from './ui/AnnouncementsSidebar';
-import { TaskModal } from './ui/TaskModal';
 
 // Extended task type with group info
 interface DashboardTask {
@@ -40,14 +38,15 @@ interface DashboardTask {
 }
 
 export default function DashboardView() {
+  const navigate = useNavigate();
   // State for Database Data
   const [tasks, setTasks] = useState<DashboardTask[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [sortOrder, setSortOrder] = useState<SortOrder>('high-to-low');
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get current user
   useEffect(() => {
@@ -125,10 +124,19 @@ export default function DashboardView() {
 
   // Sort tasks
   const sortedTasks = useMemo(() => {
-    const sorted = [...tasks];
+    let filtered = [...tasks];
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(task => 
+        task.title.toLowerCase().includes(query) ||
+        (task.group_name && task.group_name.toLowerCase().includes(query))
+      );
+    }
     
     if (sortOrder === 'date-asc') {
-      return sorted.sort((a, b) => {
+      return filtered.sort((a, b) => {
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
         return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
@@ -136,13 +144,13 @@ export default function DashboardView() {
     } else {
       // Priority sort
       const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return sorted.sort((a, b) => {
+      return filtered.sort((a, b) => {
         const aP = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2;
         const bP = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
         return aP - bP;
       });
     }
-  }, [tasks, sortOrder]);
+  }, [tasks, sortOrder, searchQuery]);
 
   const ganttItems = useMemo(() => {
     if (!tasks.length) return [] as GanttItem[];
@@ -212,14 +220,16 @@ export default function DashboardView() {
               </div>
 
               <div className="relative flex items-center gap-2">
-                <select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-                  className="text-sm border-none bg-slate-50 rounded-lg px-3 py-2 pr-8 focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
-                >
-                  <option value="high-to-low">Priority</option>
-                  <option value="date-asc">Due Date</option>
-                </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search tasks or groups..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="text-sm border border-slate-200 bg-slate-50 rounded-lg pl-9 pr-3 py-2 w-48 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 
@@ -242,7 +252,7 @@ export default function DashboardView() {
                     <div 
                       key={task.id}
                       className="flex items-center gap-4 p-4 rounded-lg border border-[#E2E8F0] hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => setSelectedTask(task)}
+                      onClick={() => navigate(`/groups?groupId=${task.group_id}&view=tasks`)}
                     >
                       {/* Priority indicator */}
                       <div 
@@ -253,7 +263,9 @@ export default function DashboardView() {
                       {/* Task info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-[#1E293B] truncate">{task.title}</h3>
+                          <h3 className="font-semibold text-[#1E293B] truncate">
+                            {task.title}
+                          </h3>
                           {task.status === 'in-progress' && (
                             <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
                               In Progress
@@ -311,15 +323,6 @@ export default function DashboardView() {
           <AnnouncementsSidebar announcements={announcements} />
         </aside>
       </div>
-
-      {selectedTask ? (
-        <TaskModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          getPriorityColor={getPriorityColor}
-          getStatusColor={getStatusColor}
-        />
-      ) : null}
     </div>
   );
 }
