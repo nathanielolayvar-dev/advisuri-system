@@ -6,6 +6,16 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // <--- ADD THIS PLUGIN
+    tailwindcss(),
   ],
+  // Add this block:
+  optimizeDeps: {
+    include: ['agora-rtc-react', 'agora-rtc-sdk-ng'],
+  },
+  server: {
+    host: true, 
+    watch: {
+      usePolling: true, 
+    },
+  },
 });
