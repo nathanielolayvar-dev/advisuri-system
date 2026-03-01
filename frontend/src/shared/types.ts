@@ -253,6 +253,7 @@ export interface TimelineTask {
   progress_percentage: number;
   assignee_name: string;
   hex_color: string;
+  due_date?: string;
 }
 
 // ============================================================================

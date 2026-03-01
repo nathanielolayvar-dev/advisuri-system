@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Video, VideoOff, Mic, MicOff, Phone, Monitor, Settings, Users, Maximize2, MessageSquare, MoreVertical, Send, X, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
+import { Message } from '../../../shared/types';
 import AgoraRTC, { 
   AgoraRTCProvider, 
   useJoin, 
@@ -39,17 +40,120 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
   groupName = 'Group Call',
   groupId,
   currentUserName = 'You',
-  currentUserId
+  currentUserId: propUserId
 }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const [audioVolumes, setAudioVolumes] = useState<Record<string, number>>({});
+  const [currentUserId, setCurrentUserId] = useState<string | null>(propUserId || null);
+  const [sending, setSending] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Get current user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || propUserId || null);
+    };
+    getUser();
+  }, [propUserId]);
+
+  // Fetch messages from the group
+  const fetchMessages = async () => {
+    if (!groupId) return;
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          id,
+          text,
+          created_at,
+          user_id,
+          users ( full_name )
+        `)
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedMessages: Message[] = (data || []).map(msg => {
+        const userData = Array.isArray(msg.users) ? msg.users[0] : msg.users;
+        const name = userData?.full_name || 'Unknown';
+
+        return {
+          id: msg.id,
+          text: msg.text,
+          timestamp: msg.created_at,
+          sender_name: name,
+          is_self: msg.user_id === currentUserId,
+          sender_initials: name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+        };
+      });
+
+      setMessages(formattedMessages);
+    } catch (err) {
+      console.error('Error loading chat:', err);
+    }
+  };
+
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!groupId || !isChatOpen) return;
+
+    fetchMessages();
+
+    const channel = supabase
+      .channel(`video-call-room:${groupId}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `group_id=eq.${groupId}` },
+        () => fetchMessages()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId, isChatOpen, currentUserId]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (chatScrollRef.current && isChatOpen) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [messages, isChatOpen]);
+
+  // Send message handler
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || sending || !currentUserId || !groupId) return;
+
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([{ 
+          text: newMessage, 
+          group_id: groupId, 
+          user_id: currentUserId 
+        }]);
+
+      if (error) throw error;
+      
+      setNewMessage('');
+      fetchMessages();
+      
+    } catch (err) {
+      console.error('Failed to send:', err);
+    } finally {
+      setSending(false);
+    }
+  };
   
   // Get the RTC client for manual subscription
   const agoraClient = useRTCClient(client);
@@ -289,13 +393,73 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
           ))}
         </div>
 
-        {/* Chat Sidebar (Simplified for brevity) */}
+        {/* Chat Sidebar */}
         {isChatOpen && (
           <div className="w-80 bg-slate-900 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
-             <div className="p-4 border-b border-white/10 font-bold">In-call Chat</div>
-             <div className="flex-1 p-4 overflow-y-auto text-sm text-gray-400">
-                Messages will appear here...
-             </div>
+            <div className="p-4 border-b border-white/10 font-bold flex items-center gap-2">
+              <MessageSquare size={18} />
+              Group Chat
+            </div>
+            
+            {/* Messages List */}
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+              {messages.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <MessageSquare size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No messages yet</p>
+                  <p className="text-xs mt-1">Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.is_self ? 'flex-row-reverse' : ''}`}>
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{ background: msg.avatar_color || '#6366f1' }}
+                    >
+                      {msg.sender_initials || msg.sender_name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className={`flex flex-col ${msg.is_self ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                      {!msg.is_self && (
+                        <span className="text-xs text-gray-400 mb-1">{msg.sender_name}</span>
+                      )}
+                      <div 
+                        className={`px-3 py-2 rounded-xl text-sm ${
+                          msg.is_self 
+                            ? 'bg-blue-600 text-white rounded-br-md' 
+                            : 'bg-white/10 text-gray-200 rounded-bl-md'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-xs text-gray-500 mt-1">
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input */}
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                  disabled={sending}
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim() || sending}
+                  className="p-2 bg-blue-600 hover:bg-blue-700 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
