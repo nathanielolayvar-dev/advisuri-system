@@ -13,9 +13,28 @@
 // ============================================================================
 // Core User Types (maps to `users` table)
 // ============================================================================
+import { ApexOptions } from 'apexcharts';
+
+// Define chart series types locally (mirrors ApexCharts internal types)
+export type ChartSeriesAxis = {
+  name?: string;
+  type?: string;
+  color?: string;
+  group?: string;
+  hidden?: boolean;
+  zIndex?: number;
+  data:
+    | number[]
+    | { x: any; y: any }[]
+    | [number, number | null][]
+    | number[][];
+}[];
+
+export type ChartSeriesNonAxis = number[] | ChartSeriesAxis;
+export type ChartSeries = ApexOptions['series'];
 
 export interface SupabaseUser {
-  user_id: string;       // UUID — matches auth.users.id
+  user_id: string; // UUID — matches auth.users.id
   full_name: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';
@@ -43,16 +62,16 @@ export interface ApiUser {
 // ============================================================================
 
 export interface SupabaseGroup {
-  group_id: string;      // UUID
+  group_id: string; // UUID
   group_name: string;
   course: string;
-  created_by: string;    // UUID → users.user_id
+  created_by: string; // UUID → users.user_id
   created_at: string;
 }
 
 export interface SupabaseGroupMember {
-  group_id: string;      // UUID
-  user_id: string;       // UUID
+  group_id: string; // UUID
+  user_id: string; // UUID
   joined_at: string;
 }
 
@@ -80,17 +99,17 @@ export interface ApiGroupMember {
 // ============================================================================
 
 export interface SupabaseTask {
-  id: string;            // UUID
+  id: string; // UUID
   title: string;
   description?: string;
-  group_id: string;      // UUID → groups.group_id
-  creator_id: string;    // UUID → users.user_id
+  group_id: string; // UUID → groups.group_id
+  creator_id: string; // UUID → users.user_id
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in-progress' | 'completed';
   due_date?: string;
   max_score?: number;
   final_score?: number;
-  assigned_to?: string;  // UUID → users.user_id
+  assigned_to?: string; // UUID → users.user_id
   progress_percentage?: number;
   completed_at?: string;
   is_overdue?: boolean;
@@ -103,9 +122,9 @@ export interface SupabaseTask {
 // ============================================================================
 
 export interface SupabaseSubmission {
-  id: string;            // UUID
-  task_id: string;       // UUID → tasks.id
-  submitted_by: string;  // UUID → users.user_id
+  id: string; // UUID
+  task_id: string; // UUID → tasks.id
+  submitted_by: string; // UUID → users.user_id
   version_number: number;
   overall_feedback?: string;
   is_accepted?: boolean;
@@ -117,7 +136,7 @@ export interface SupabaseSubmission {
 // ============================================================================
 
 export interface SupabaseAttachment {
-  id: string;            // UUID
+  id: string; // UUID
   submission_id: string; // UUID → submissions.id
   file_name: string;
   file_url: string;
@@ -130,10 +149,10 @@ export interface SupabaseAttachment {
 // ============================================================================
 
 export interface SupabaseTaskNote {
-  id: string;            // UUID
+  id: string; // UUID
   content: string;
-  task_id: string;       // UUID → tasks.id
-  author_id: string;     // UUID → users.user_id
+  task_id: string; // UUID → tasks.id
+  author_id: string; // UUID → users.user_id
   submission_id?: string;
   created_at: string;
   // Joined field from users table
@@ -145,11 +164,11 @@ export interface SupabaseTaskNote {
 // ============================================================================
 
 export interface SupabaseChatMessage {
-  id: string;            // UUID
-  group_id: string;      // UUID → groups.group_id
+  id: string; // UUID
+  group_id: string; // UUID → groups.group_id
   text: string;
   created_at: string;
-  user_id: string;       // UUID → users.user_id
+  user_id: string; // UUID → users.user_id
   is_encrypted?: boolean;
   encrypted_messages?: any;
   // Joined field from users table
@@ -161,13 +180,13 @@ export interface SupabaseChatMessage {
 // ============================================================================
 
 export interface SupabaseDocument {
-  id: string;            // UUID
-  group_id: string;      // UUID → groups.group_id
+  id: string; // UUID
+  group_id: string; // UUID → groups.group_id
   name: string;
   file_url: string;
   file_type?: string;
   file_size?: string;
-  uploaded_by: string;   // UUID → users.user_id
+  uploaded_by: string; // UUID → users.user_id
   created_at: string;
 }
 
@@ -294,7 +313,9 @@ export interface Document {
 
 export interface MemberBandwidth {
   name: string;
-  risk_score: number;
+  active_tasks: number;
+  risk_score: string;
+  status_color: string;
 }
 
 export interface GroupAnalytics {
@@ -302,11 +323,40 @@ export interface GroupAnalytics {
   task_velocity: number;
   contribution_balance: number;
   at_risk_status: 'High' | 'Low' | 'Medium';
-  tone_analysis: string;
   workload_prediction: number;
   completion_forecast: string;
   milestone_buffer: number;
   member_bandwidth: MemberBandwidth[];
+}
+
+/**
+ * Analytics response from backend API
+ * Matches the structure returned by /api/analytics/{groupId}/ endpoint
+ */
+export interface AnalyticsResponse {
+  group_id: string;
+  metrics: {
+    pulse: number;
+    velocity: number;
+    forecast_end_date: string;
+    ai_risk_level: 'High' | 'Low' | 'Medium';
+    team_balance_score: number;
+    buffer_days: number;
+  };
+  user_status: {
+    user_id: string;
+    bandwidth_available: string;
+    burnout_risk: string;
+  };
+  alerts: {
+    bottlenecks: string[];
+  };
+  member_report: MemberBandwidth[];
+}
+
+export interface ChartPackage {
+  options: ApexOptions;
+  series: ChartSeries;
 }
 
 // ============================================================================

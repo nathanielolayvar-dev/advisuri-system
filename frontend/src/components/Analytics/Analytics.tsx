@@ -1,156 +1,343 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { GroupAnalytics } from '../../shared/types';
+import { AnalyticsResponse } from '../../shared/types';
 import { StatCard } from './StatCard';
+import Chart from 'react-apexcharts';
+import { ApexOptions } from 'apexcharts';
 import '../../styles/Analytics.css'; // Import your new styles
 
-export const AnalyticsView = ({ groupId }: { groupId: number }) => {
-  const [data, setData] = useState<GroupAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
+interface AnalyticsViewProps {
+  /**
+   * Analytics metrics from the API response
+   * Contains: pulse, velocity, forecast_end_date, ai_risk_level, team_balance_score, buffer_days
+   */
+  analyticsData: AnalyticsResponse;
+}
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        setLoading(true);
-        // Ensure your Django URL matches this path
-        const response = await fetch(`/api/groups/${groupId}/analytics/`);
-        if (!response.ok) throw new Error('Network response was not ok');
+export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
+  // 1. Map backend response to the GroupAnalytics interface
+  const data: GroupAnalytics = {
+    activity_pulse: analyticsData.metrics.pulse,
+    task_velocity: analyticsData.metrics.velocity,
+    contribution_balance: analyticsData.metrics.team_balance_score,
+    at_risk_status: analyticsData.metrics.ai_risk_level,
+    workload_prediction: 0,
+    completion_forecast: analyticsData.metrics.forecast_end_date,
+    milestone_buffer: analyticsData.metrics.buffer_days,
+    member_bandwidth: analyticsData.member_report, // Mapping to member_report from backend
+  };
 
-        const json: GroupAnalytics = await response.json();
-        setData(json);
-      } catch (err) {
-        console.error('Failed to load analytics', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAnalytics();
-  }, [groupId]);
+  // 2. ApexCharts Configurations
+  // Activity Pulse (Radial Gauge)
+  const pulseOptions: ApexOptions = {
+    chart: { type: 'radialBar' },
+    plotOptions: {
+      radialBar: {
+        startAngle: -135,
+        endAngle: 135,
+        hollow: { size: '70%' },
+        track: { background: '#e7e7e7', strokeWidth: '97%' },
+        dataLabels: {
+          name: { fontSize: '16px', color: '#64748b', offsetY: 120 },
+          value: {
+            offsetY: 76,
+            fontSize: '22px',
+            color: '#1e293b',
+            formatter: (val) => `${val}%`,
+          },
+        },
+      },
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shade: 'dark',
+        gradientToColors: ['#818cf8'],
+        stops: [0, 100],
+      },
+    },
+    stroke: { lineCap: 'round' },
+    labels: ['Team Pulse'],
+  };
 
-  if (loading) {
-    return (
-      <div className="loadingContainer">
-        <div className="styles.spinner"></div>
-        <p className="mt-4 text-slate-500 animate-pulse">
-          Running Scikit-Learn Engines...
-        </p>
-      </div>
-    );
-  }
+  //Completion Forecast (Burn-up Chart)
+  const forecastOptions: ApexOptions = {
+    chart: { type: 'line', toolbar: { show: false } },
+    stroke: { curve: 'smooth', width: [4, 2], dashArray: [0, 8] },
+    colors: ['#4f46e5', '#94a3b8'],
+    xaxis: { categories: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Forecast'] },
+    yaxis: { title: { text: 'Tasks' } },
+    legend: { position: 'top' },
+    markers: { size: 4 },
+    // annotation for the vertical forecast line
+    annotations: {
+      xaxis: [
+        {
+          x: 'Forecast',
+          borderColor: '#ef4444',
+          label: {
+            text: 'AI Projection',
+            style: { color: '#fff', background: '#ef4444' },
+          },
+        },
+      ],
+    },
+    series: [
+      { name: 'Completed Tasks', data: [10, 20, 35, 45, 60] },
+      { name: 'Total Tasks', data: [15, 25, 40, 50, 65] },
+    ],
+  };
 
-  if (!data) {
-    return (
-      <div className="p-8 text-center">
-        No intelligence data found for this workspace.
-      </div>
-    );
-  }
+  //Contribution Balance (Donut Chart)
+  const balanceOptions: ApexOptions = {
+    chart: { type: 'donut' },
+    labels: analyticsData.member_report.map((m) => m.name),
+    colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'],
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '75%',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Balance Score',
+              formatter: () => `${analyticsData.metrics.team_balance_score}%`,
+            },
+          },
+        },
+      },
+    },
+    dataLabels: { enabled: false },
+    legend: { position: 'bottom' },
+  };
+
+  //Member Bandwidth (Stacked Horizontal Bar)
+  const bandwidthOptions: ApexOptions = {
+    chart: { type: 'bar', stacked: true, toolbar: { show: false } },
+    plotOptions: {
+      bar: { horizontal: true, barHeight: '60%', borderRadius: 4 },
+    },
+    xaxis: { categories: analyticsData.member_report.map((m) => m.name) },
+    colors: ['#6366f1', '#e2e8f0'],
+    series: [
+      {
+        name: 'Used Capacity',
+        data: analyticsData.member_report.map((m) => m.active_tasks),
+      },
+      {
+        name: 'Remaining',
+        data: analyticsData.member_report.map((m) =>
+          Math.max(0, 10 - m.active_tasks)
+        ),
+      },
+    ],
+    legend: { position: 'top' },
+  };
+
+  //Milestone Buffer (Bullet Graph)
+  const bufferOptions: ApexOptions = {
+    chart: { type: 'bar', height: 100, toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
+    colors: [analyticsData.metrics.buffer_days < 0 ? '#ef4444' : '#10b981'],
+    xaxis: { categories: ['Days Remaining'], max: 30 }, // Assuming 30-day window
+    annotations: {
+      xaxis: [{ x: 5, borderColor: '#f59e0b', label: { text: 'Danger Zone' } }],
+    },
+  };
+
+  //Risk Detection (Risk Matrix Grid)
+  const riskOptions: ApexOptions = {
+    chart: { type: 'heatmap' },
+    dataLabels: { enabled: false },
+    colors: ['#ef4444', '#f59e0b', '#10b981'],
+    xaxis: { categories: ['Low', 'Medium', 'High'] },
+    plotOptions: {
+      heatmap: {
+        radius: 4,
+        colorScale: {
+          ranges: [
+            { from: 0, to: 1, color: '#10b981', name: 'Low Risk' },
+            { from: 2, to: 3, color: '#f59e0b', name: 'Medium Risk' },
+            { from: 4, to: 5, color: '#ef4444', name: 'High Risk' },
+          ],
+        },
+      },
+    },
+    series: [
+      {
+        name: 'Impact',
+        data: [
+          { x: 'Low', y: 2 },
+          { x: 'Medium', y: 3 },
+          { x: 'High', y: 4 },
+        ],
+      },
+    ],
+  };
+
+  //Task Velocity (Bar + Trend Line)
+  const velocityOptions: ApexOptions = {
+    chart: { type: 'line', toolbar: { show: false } },
+    stroke: { width: [0, 4], curve: 'smooth' },
+    colors: ['#e2e8f0', '#6366f1'],
+    series: [
+      { name: 'Daily Tasks', type: 'column', data: [2, 5, 3, 6, 4] },
+      { name: 'Moving Average', type: 'line', data: [3, 3.5, 3.8, 4, 4.2] },
+    ],
+    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+  };
+
+  //Workload Prediction (Stacked Area Chart)
+  const predictionOptions: ApexOptions = {
+    chart: { type: 'area', stacked: true, toolbar: { show: false } },
+    colors: ['#818cf8', '#c084fc'],
+    dataLabels: { enabled: false },
+    stroke: { curve: 'monotoneCubic' },
+    fill: { type: 'gradient', gradient: { opacityFrom: 0.6, opacityTo: 0.1 } },
+    xaxis: { categories: ['Tomorrow', 'Day 2', 'Day 3', 'Day 4', 'Day 5'] },
+    series: [
+      { name: 'New Incoming Tasks', data: [3, 7, 4, 8, 5] },
+      { name: 'Current Backlog', data: [10, 8, 9, 5, 4] },
+    ],
+  };
+
+  //put other charts options here for other algorithms...
 
   return (
-    <div className="container">
-      <header className="mb-8">
-        <h2 className="title">Workspace Intelligence</h2>
-        <p className="text-slate-500 text-sm">
-          Predictive insights based on task patterns and team activity.
-        </p>
+    <div className="container p-6 space-y-8">
+      {/* 1. Header Section */}
+      <header className="flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+            Intelligence Dashboard
+          </h2>
+          <p className="text-slate-500 font-medium">
+            Predictive AI analysis for Group {analyticsData.group_id}
+          </p>
+        </div>
+        <div className="px-4 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+          <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">
+            System Status: Optimal
+          </span>
+        </div>
       </header>
 
-      {/* Row 1: The "Big Three" ML Insights */}
-      <div className="gridThree">
+      {/* 2. Top Level Stat Cards (The "Big Three") */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           title="Completion Forecast"
-          value={data.completion_forecast}
-          detail={`${data.milestone_buffer} days buffer remaining`}
+          value={analyticsData.metrics.forecast_end_date}
+          detail="AI Predicted Date"
           type="forecasting"
         />
         <StatCard
-          title="Health Risk Level"
-          value={data.at_risk_status}
-          detail={
-            data.at_risk_status === 'High'
-              ? 'Requires Intervention'
-              : 'Healthy Progress'
-          }
+          title="Risk Level"
+          value={analyticsData.metrics.ai_risk_level}
+          detail="Random Forest Analysis"
           type="predictive"
         />
         <StatCard
-          title="Task Sentiment"
-          value={data.tone_analysis}
-          detail="Calculated from task language"
-          type="predictive"
+          title="Milestone Buffer"
+          value={`${analyticsData.metrics.buffer_days} Days`}
+          detail="Safety Margin"
+          type="forecasting"
         />
       </div>
 
-      {/* Row 2: Performance & Load */}
-      <div className="gridTwo">
-        {/* Descriptive Metrics Card */}
-        <div className="card">
-          <h3 className="cardTitle">Performance Pulse</h3>
-          <div className="space-y-6 mt-4">
-            <div className="flex justify-between items-end">
-              <span className="text-slate-500 text-sm font-medium">
-                Task Velocity
-              </span>
-              <span className="text-2xl font-bold text-slate-800">
-                {data.task_velocity}{' '}
-                <small className="text-xs text-slate-400">tasks/day</small>
-              </span>
-            </div>
-            <div className="flex justify-between items-end">
-              <span className="text-slate-500 text-sm font-medium">
-                Activity Pulse
-              </span>
-              <span className="text-2xl font-bold text-indigo-600">
-                {data.activity_pulse}%
-              </span>
-            </div>
-            <div className="flex justify-between items-end">
-              <span className="text-slate-500 text-sm font-medium">
-                Contribution Balance
-              </span>
-              <span className="text-2xl font-bold text-slate-800">
-                {data.contribution_balance}%
-              </span>
-            </div>
-          </div>
+      {/* 3. Primary Analysis Row (Forecast & Risk Matrix) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">
+            Completion Forecast (Burn-up)
+          </h3>
+          <Chart
+            options={forecastOptions}
+            series={forecastOptions.series}
+            type="line"
+            height={320}
+          />
         </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">
+            AI Risk Matrix
+          </h3>
+          <Chart
+            options={riskOptions}
+            series={[
+              {
+                name: 'Risk Zone',
+                data: [
+                  /* map your risk data here */
+                ],
+              },
+            ]}
+            type="heatmap"
+            height={320}
+          />
+        </div>
+      </div>
 
-        {/* Predictive Bandwidth Card */}
-        <div className="card">
-          <h3 className="cardTitle">Member Bandwidth (ML Predicted)</h3>
-          <div className="mt-4 space-y-5">
-            {data.member_bandwidth.map((member, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="font-semibold text-slate-700">
-                    {member.name}
-                  </span>
-                  <span
-                    className={
-                      member.risk_score > 80
-                        ? 'text-red-500 font-bold'
-                        : 'text-slate-500'
-                    }
-                  >
-                    {Math.round(member.risk_score)}% Load
-                  </span>
-                </div>
-                <div className="progressBarTrack">
-                  <div
-                    className="progressBarFill"
-                    style={{
-                      width: `${member.risk_score}%`,
-                      backgroundColor:
-                        member.risk_score > 80
-                          ? '#ef4444'
-                          : member.risk_score > 50
-                            ? '#f59e0b'
-                            : '#3b82f6',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* 4. Team Dynamics Row (Pulse, Balance, Velocity) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
+            Activity Pulse
+          </h3>
+          <Chart
+            options={pulseOptions}
+            series={[analyticsData.metrics.pulse]}
+            type="radialBar"
+            height={250}
+          />
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
+            Contribution Balance
+          </h3>
+          <Chart
+            options={balanceOptions}
+            series={analyticsData.member_report.map((m) => m.active_tasks)}
+            type="donut"
+            height={250}
+          />
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
+            Task Velocity
+          </h3>
+          <Chart
+            options={velocityOptions}
+            series={velocityOptions.series}
+            type="line"
+            height={220}
+          />
+        </div>
+      </div>
+
+      {/* 5. Resource & Future Load Row (Bandwidth & Workload) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+            Member Bandwidth
+          </h3>
+          <Chart
+            options={bandwidthOptions}
+            series={bandwidthOptions.series}
+            type="bar"
+            height={280}
+          />
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+            Upcoming Workload (7-Day Prediction)
+          </h3>
+          <Chart
+            options={predictionOptions}
+            series={predictionOptions.series}
+            type="area"
+            height={280}
+          />
         </div>
       </div>
     </div>

@@ -1,24 +1,40 @@
 import axios from 'axios';
-import { GroupAnalytics } from '../shared/types';
+import { AnalyticsResponse } from '../shared/types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+/**
+ * Service to handle all AI-driven analytical data fetching.
+ * Uses the AnalyticsResponse interface to ensure type safety.
+ */
+export const analyticsService = {
+  /**
+   * Fetches the complete Health Snapshot for a specific group.
+   * @param groupId - The ID of the group to analyze.
+   */
+  getGroupAnalytics: async (
+    groupId: string | number
+  ): Promise<AnalyticsResponse> => {
+    /**Promise<AnalyticsResponse> create a contract between backend and frontend */
+    try {
+      // Assuming your Django API endpoint is /api/analytics/<group_id>/
+      const response = await axios.get<AnalyticsResponse>(
+        `/api/analytics/${groupId}/`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching analytics for group ${groupId}:`, error);
+      throw error;
+    }
+  },
 
-// 1. Create an instance (Better for adding Auth headers later)
-const api = axios.create({
-  baseURL: API_URL,
-});
-
-export const getGroupAnalytics = async (
-  groupId: string
-): Promise<GroupAnalytics> => {
-  try {
-    // 2. Tell Axios what shape the data is (<GroupAnalytics>)
-    const response = await api.get<GroupAnalytics>(
-      `/groups/${groupId}/analytics/`
+  /**
+   * Optional: Helper to refresh analytics specifically
+   */
+  refreshAnalytics: async (
+    groupId: string | number
+  ): Promise<AnalyticsResponse> => {
+    const response = await axios.post<AnalyticsResponse>(
+      `/api/analytics/${groupId}/refresh/`
     );
     return response.data;
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    throw error; // Re-throw so the AnalyticsPage can catch it and show the error UI
-  }
+  },
 };
