@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { analyticsService } from '../services/analyticsService'; // Use the service we built
+import { analyticsService } from '../services/analyticsService';
+import { getGroups, GroupWithMembers } from '../services/groupService';
 import { AnalyticsView as AnalyticsDashboard } from '../components/Analytics/Analytics';
-import { AnalyticsResponse } from '../shared/types'; // Use the typed interface
-import { Loader2, AlertCircle, RefreshCcw, HelpCircle } from 'lucide-react';
+import { AnalyticsResponse } from '../shared/types';
+import { Loader2, AlertCircle, RefreshCcw, HelpCircle, ChevronDown } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar/Sidebar';
 import { useSidebar } from '../components/Sidebar/SidebarContext';
 
@@ -15,18 +16,42 @@ const AnalyticsPage = () => {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<GroupWithMembers[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [groupsLoading, setGroupsLoading] = useState(true);
 
   // Sync margin with Sidebar state
   const marginClass = isPinned || isHovered ? 'ml-64' : 'ml-20';
 
+  // Fetch user's groups
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const result = await getGroups();
+        if (result.data && result.data.length > 0) {
+          setGroups(result.data);
+          // Set default selected group
+          const defaultGroup = groupId || result.data[0].id;
+          setSelectedGroupId(defaultGroup);
+        }
+      } catch (err) {
+        console.error('Error fetching groups:', err);
+      } finally {
+        setGroupsLoading(false);
+      }
+    };
+    fetchGroups();
+  }, [groupId]);
+
   const loadData = async () => {
-    if (!groupId) return;
+    // Use selected groupId or default to first group
+    const effectiveGroupId = selectedGroupId || (groups.length > 0 ? groups[0].id : '1');
     try {
       setLoading(true);
       setError(null);
 
       // Call our typed service
-      const result = await analyticsService.getGroupAnalytics(groupId);
+      const result = await analyticsService.getGroupAnalytics(effectiveGroupId);
       setData(result);
     } catch (err) {
       setError(
@@ -39,8 +64,10 @@ const AnalyticsPage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [groupId]);
+    if (selectedGroupId) {
+      loadData();
+    }
+  }, [selectedGroupId]);
 
   // --- 1. LOADING STATE ---
   if (loading) {
@@ -106,13 +133,33 @@ const AnalyticsPage = () => {
       >
         {/* Modern Sticky Header */}
         <header className="h-20 bg-white/60 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-10 sticky top-0 z-30">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Intelligence Dashboard
-            </h1>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-              Group ID: {data.group_id}
-            </p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                Intelligence Dashboard
+              </h1>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
+                Group ID: {data.group_id}
+              </p>
+            </div>
+
+            {/* Group Selector Dropdown */}
+            {groups.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="appearance-none bg-indigo-50 border border-indigo-200 text-indigo-700 py-2 px-4 pr-10 rounded-xl font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} - {group.course}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500 pointer-events-none" />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

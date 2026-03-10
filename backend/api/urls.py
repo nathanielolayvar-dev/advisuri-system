@@ -13,5 +13,6 @@ urlpatterns = [
     path("user/profile/", views.get_user_profile, name="user_profile"),
     path("documents/", views.DocumentListCreate.as_view(), name="document-list"),
     path("documents/delete/<int:pk>/", views.DocumentDelete.as_view(), name="delete-document"),
+    path("analytics/<int:group_id>/", views.GroupAnalyticsDashboard.as_view(), name="group-analytics"),
     path("", include(router.urls)),
 ]

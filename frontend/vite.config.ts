@@ -10,12 +10,18 @@ export default defineConfig({
   ],
   // Add this block:
   optimizeDeps: {
-    include: ['agora-rtc-react', 'agora-rtc-sdk-ng'],
+    include: ['agora-rtc-react', 'agora-rtc-sdk-ng', 'react-apexcharts', 'apexcharts'],
   },
   server: {
     host: true, 
     watch: {
       usePolling: true, 
+    },
+    proxy: {
+      '/api': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+      },
     },
   },
 });

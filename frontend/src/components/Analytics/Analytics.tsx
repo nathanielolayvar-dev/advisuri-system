@@ -315,8 +315,8 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
         </div>
       </div>
 
-      {/* 5. Resource & Future Load Row (Bandwidth & Workload) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+      {/* 5. Resource & Future Load Row (Bandwidth, Buffer & Workload) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
             Member Bandwidth
@@ -324,6 +324,26 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           <Chart
             options={bandwidthOptions}
             series={bandwidthOptions.series}
+            type="bar"
+            height={280}
+          />
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">
+            Milestone Buffer
+          </h3>
+          <Chart
+            options={{
+              ...bufferOptions,
+              series: [{
+                name: 'Days Remaining',
+                data: [analyticsData.metrics.buffer_days]
+              }]
+            }}
+            series={[{
+              name: 'Days Remaining',
+              data: [analyticsData.metrics.buffer_days]
+            }]}
             type="bar"
             height={280}
           />

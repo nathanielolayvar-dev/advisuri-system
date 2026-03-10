@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { supabase } from './supabaseClient';
 
-// Create Axios instance
+// Create Axios instance - don't use baseURL since we're using Vite proxy
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: '', // Will use relative URLs which go through Vite proxy
 });
 
 // Update Interceptor to use Supabase Session
