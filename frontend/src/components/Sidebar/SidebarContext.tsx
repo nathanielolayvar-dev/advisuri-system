@@ -116,7 +116,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!authReady) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, _session) => {
       // Only re-fetch on SIGNED_IN or TOKEN_REFRESHED
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         // Abort any pending request

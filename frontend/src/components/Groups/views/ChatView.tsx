@@ -29,8 +29,10 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
   const [showScrollBadge, setShowScrollBadge] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const docsFileInputRef = useRef<HTMLInputElement>(null);
 
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -161,38 +163,168 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
   }
 };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  };
+
+  const resolveFileType = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    if (['pdf'].includes(ext)) return 'pdf';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'excel';
+    if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) return 'doc';
+    if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)) return 'image';
+    if (['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'rb', 'go', 'php', 'html', 'css', 'json', 'yaml', 'yml'].includes(ext)) return 'code';
+    return 'other';
+  };
+
+  const isImageUrl = (url: string) => {
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'];
+    const lower = url.toLowerCase().split('?')[0];
+    return imageExtensions.some(ext => lower.endsWith(ext));
+  };
+
+  const extractUrlFromText = (text: string) => {
+    const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
+    if (!urlMatch) return null;
+
+    const url = urlMatch[1];
+    const isImage = isImageUrl(url);
+
+    // Try to extract a label from messages like:
+    // "Uploaded document: filename.ext https://..."
+    const labelMatch = text.match(/Uploaded document:\s*(.+?)\s+https?:\/\//i);
+    const label = labelMatch ? labelMatch[1].trim() : null;
+
+    return { url, label, isImage };
+  };
+
+  const renderMessageText = (text: string) => {
+    const link = extractUrlFromText(text);
+    if (!link) return <span>{text}</span>;
+
+    // If the link points to an image, render it directly in the chat bubble
+    if (link.isImage) {
+      return (
+        <div className="message-image-wrapper">
+          <img className="message-image" src={link.url} alt={link.label || 'Image'} />
+          {link.label && <div className="message-image-label">{link.label}</div>}
+        </div>
+      );
+    }
+
+    return (
+      <div className="link-card">
+        <div className="link-card-icon">
+          <LinkIcon size={16} />
+        </div>
+        <div className="link-card-body">
+          <a
+            className="link-card-title link-card-url"
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {link.label || 'Link'}
+          </a>
+        </div>
+      </div>
+    );
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (!files || files.length === 0 || !groupId || !currentUserId) return;
+
+    setSending(true);
+    setUploadStatus('Uploading...');
+
+    try {
+      const bucketName = 'capstone_submissions';
+      const fileArray = Array.from(files) as File[];
+
+      for (const file of fileArray) {
+        const filePath = `${groupId}/${currentUserId}/${Date.now()}_${file.name}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath);
+
+        const { error: insertError } = await supabase.from('documents').insert([{
+          group_id: groupId,
+          name: file.name,
+          file_url: publicUrlData.publicUrl,
+          file_type: resolveFileType(file.name),
+          file_size: formatBytes(file.size),
+          uploaded_by: currentUserId,
+        }]);
+
+        if (insertError) throw insertError;
+
+        const uploadMessage = `Uploaded document: ${file.name} ${publicUrlData.publicUrl}`;
+        const { error: messageError } = await supabase.from('chat_messages').insert([{
+          text: uploadMessage,
+          group_id: groupId,
+          user_id: currentUserId,
+        }]);
+
+        if (messageError) throw messageError;
+      }
+
+      setUploadStatus('Upload complete');
+      fetchDocuments();
+      fetchMessages();
+    } catch (err) {
+      console.error('Failed to upload document:', err);
+      setUploadStatus('Upload failed (see console)');
+    } finally {
+      setSending(false);
+      // Reset the file inputs so the same file can be re-selected
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+      if (docsFileInputRef.current) docsFileInputRef.current.value = '';
+
+      window.setTimeout(() => setUploadStatus(null), 2500);
+    }
+  };
+
   // Fetch documents from Supabase
-  const fetchDocuments = async () => {
-    if (!groupId) return;
-    try {
-const { data, error } = await supabase
-  .from('documents')
-  .select('*')
-        .eq('group_id', groupId);
+  const fetchDocuments = async () => {
+    if (!groupId) return;
 
-      if (error) throw error;
-      setDocuments(data || []);
-    } catch (err) {
-      console.error('Error loading documents:', err);
-    }
-  };
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('group_id', groupId);
 
-  const handleDeleteDocument = async (docId: string | number) => {
-    try {
-const { error } = await supabase
-  .from('documents')
-  .delete()
-        .eq('id', docId);
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Error loading documents:', err);
+    }
+  };
 
-      if (error) throw error;
-      setDocuments((prev) => prev.filter((d) => d.id !== docId));
-    } catch (err) {
-      console.error('Failed to delete document:', err);
-    }
-  };
+  const handleDeleteDocument = async (docId: string | number) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', docId);
 
-  const formatFileSize = (size: string) => {
-    return size || '0 KB';
+      if (error) throw error;
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+    }
   };
 
   return (
@@ -222,19 +354,24 @@ const { error } = await supabase
               <LinkIcon size={16} />
               Group Documents
             </h3>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+            <label
+              className={`flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors ${sending ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="Upload document"
             >
               <Paperclip size={14} />
               Upload
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              //onChange={handleFileUpload}
-            />
+              <input
+                ref={docsFileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="sr-only"
+                disabled={sending}
+              />
+            </label>
+            {uploadStatus && (
+              <span className="text-xs text-slate-400 ml-2">{uploadStatus}</span>
+            )}
           </div>
           <div className="documents-list">
             {documents.length === 0 ? (
@@ -258,7 +395,7 @@ const { error } = await supabase
                       {doc.name}
                     </a>
                     <div className="document-meta">
-                      {formatFileSize(doc.file_size || '')}
+                      {formatBytes(Number(doc.file_size) || 0)}
                     </div>
                   </div>
                   <button
@@ -300,7 +437,7 @@ const { error } = await supabase
                   <span className="sender-name">{msg.sender_name}</span>
                 )}
                 <div className={`bubble ${msg.is_self ? 'self' : 'other'}`}>
-                  {msg.text}
+                  {renderMessageText(msg.text)}
                 </div>
                 <span className="timestamp-text">
                   {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -326,20 +463,20 @@ const { error } = await supabase
 
       {/* Input Bar */}
       <form onSubmit={handleSendMessage} className="input-bar">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="attach-btn"
+        <label
+          className={`attach-btn ${sending ? 'opacity-50 cursor-not-allowed' : ''}`}
           title="Attach file"
         >
           <Paperclip size={18} />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          //onChange={handleFileUpload}
-        />
+          <input
+            ref={chatFileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileUpload}
+            className="sr-only"
+            disabled={sending}
+          />
+        </label>
         <div className="chat-input-wrapper">
           <input
             className="chat-input"
@@ -348,6 +485,9 @@ const { error } = await supabase
             onChange={(e) => setNewMessage(e.target.value)}
             disabled={sending}
           />
+          {uploadStatus && (
+            <span className="text-xs text-slate-400 mt-1">{uploadStatus}</span>
+          )}
         </div>
         <button type="submit" className="send-btn" disabled={!newMessage.trim() || sending}>
           <Send size={18} />

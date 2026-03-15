@@ -1,26 +1,20 @@
 import {
   Shield,
   Users,
-  Settings,
   Bell,
   FileText,
   Calendar,
   UserPlus,
   Trash2,
-  Download,
   Send,
-  Clock,
   CheckCircle,
   AlertTriangle,
   Search,
   Filter,
-  Plus,
   Mail,
-  MessageSquare,
   Lock,
   Unlock,
   UserCheck,
-  ClipboardList,
   Loader2,
   RefreshCw,
   X,
@@ -57,18 +51,6 @@ interface AuditLog {
   users?: { full_name: string } | null; // Joined from users
 }
 
-interface Schedule {
-  id: string;
-  teacher_id: string;
-  subject: string;
-  classroom: string;
-  day_of_week: string;
-  start_time: string; // Updated from new schema
-  end_time: string;   // Updated from new schema
-  student_capacity: number; // Updated from new schema
-  users?: { full_name: string } | null;
-}
-
 interface Notification {
   id: string;
   notification_type: 'Emergency' | 'Announcement' | 'Newsletter'; // Updated
@@ -95,12 +77,14 @@ interface AdminStats {
 // ============================================================================
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'users' | 'notifications' | 'audit' | 'schedule' | 'reports'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'notifications' | 'audit'>('users');
+
+  const [auditStartDate, setAuditStartDate] = useState<string>('');
+  const [auditEndDate, setAuditEndDate] = useState<string>('');
 
   // Data state
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
@@ -115,7 +99,6 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [newRole, setNewRole] = useState<'admin' | 'teacher' | 'student'>('student');
@@ -199,26 +182,31 @@ export default function AdminPanel() {
     setLoading(false);
   }, []);
 
-  const fetchAuditLogs = useCallback(async () => {
+  const toLocalIso = (dateStr: string, endOfDay = false) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    return date.toISOString();
+  };
+
+  const fetchAuditLogs = useCallback(async (startDate?: string, endDate?: string) => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    let query = supabase
       .from('audit_logs')
       .select('*, users ( full_name )')
       .order('timestamp', { ascending: false })
       .limit(50);
 
+    if (startDate) {
+      query = query.gte('timestamp', toLocalIso(startDate, false));
+    }
+    if (endDate) {
+      query = query.lte('timestamp', toLocalIso(endDate, true));
+    }
+
+    const { data, error } = await query;
+
     if (!error && data) setAuditLogs(data as AuditLog[]);
-    setLoading(false);
-  }, []);
-
-  const fetchSchedules = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('master_schedule')
-      .select('*, users ( full_name )')
-      .order('day_of_week', { ascending: true });
-
-    if (!error && data) setSchedules(data as Schedule[]);
     setLoading(false);
   }, []);
 
@@ -238,9 +226,8 @@ export default function AdminPanel() {
     fetchStats();
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'audit') fetchAuditLogs();
-    if (activeTab === 'schedule') fetchSchedules();
     if (activeTab === 'notifications') fetchNotifications();
-  }, [activeTab, fetchStats, fetchUsers, fetchAuditLogs, fetchSchedules, fetchNotifications]);
+  }, [activeTab, fetchStats, fetchUsers, fetchAuditLogs, fetchNotifications]);
 
   // ============================================================================
   // Actions
@@ -350,17 +337,6 @@ export default function AdminPanel() {
       fetchNotifications();
     }
     setNotifSending(false);
-  };
-
-  const handleDeleteSchedule = async (scheduleId: string, subject: string) => {
-    if (!window.confirm('Delete this schedule slot?')) return;
-    
-    const { error } = await supabase.from('master_schedule').delete().eq('id', scheduleId);
-    if (!error) {
-      setSchedules(prev => prev.filter(s => s.id !== scheduleId));
-      await logAuditAction('Deleted schedule block', `Subject: ${subject}`);
-      fetchStats();
-    }
   };
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -488,8 +464,6 @@ export default function AdminPanel() {
             { id: 'users', label: 'User Management', icon: Users },
             { id: 'notifications', label: 'Notifications', icon: Bell },
             { id: 'audit', label: 'Audit Logs', icon: FileText },
-            { id: 'schedule', label: 'Scheduling', icon: Calendar },
-            { id: 'reports', label: 'Reports', icon: ClipboardList },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -720,10 +694,47 @@ export default function AdminPanel() {
           ================================================================ */}
           {activeTab === 'audit' && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <p className="text-sm text-[#64748B]">Monitor system activity and track user actions</p>
-                <div className="flex items-center gap-2">
-                  <button onClick={fetchAuditLogs} className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-[#64748B]">From</label>
+                    <input
+                      type="date"
+                      value={auditStartDate}
+                      onChange={(e) => setAuditStartDate(e.target.value)}
+                      className="h-9 px-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-[#64748B]">To</label>
+                    <input
+                      type="date"
+                      value={auditEndDate}
+                      onChange={(e) => setAuditEndDate(e.target.value)}
+                      className="h-9 px-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    />
+                  </div>
+                  <button
+                    onClick={() => fetchAuditLogs(auditStartDate, auditEndDate)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors"
+                  >
+                    <Filter className="w-4 h-4" /> Apply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuditStartDate('');
+                      setAuditEndDate('');
+                      fetchAuditLogs();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Clear
+                  </button>
+                  <button
+                    onClick={() => fetchAuditLogs(auditStartDate, auditEndDate)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors"
+                  >
                     <RefreshCw className="w-4 h-4" /> Refresh
                   </button>
                 </div>
@@ -802,137 +813,6 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* ================================================================
-              SCHEDULING TAB (Updated for `master_schedule` table)
-          ================================================================ */}
-          {activeTab === 'schedule' && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-[#64748B]">Manage master schedule and prevent classroom conflicts</p>
-                <button
-                  onClick={() => setShowScheduleModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-sm hover:shadow-md transition-shadow"
-                >
-                  <Plus className="w-4 h-4" /> Add Schedule
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="w-4 h-4 text-[#2563EB]" />
-                    <p className="text-sm text-[#64748B] font-medium">Total Classes</p>
-                  </div>
-                  <p className="text-2xl font-bold text-[#1E293B]">{schedules.length}</p>
-                </div>
-                <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-[#10B981]" />
-                    <p className="text-sm text-[#64748B] font-medium">Teachers Assigned</p>
-                  </div>
-                  <p className="text-2xl font-bold text-[#1E293B]">
-                    {new Set(schedules.map(s => s.teacher_id)).size}
-                  </p>
-                </div>
-                <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-[#DC2626]" />
-                    <p className="text-sm text-[#64748B] font-medium">Conflicts</p>
-                  </div>
-                  <p className="text-2xl font-bold text-[#DC2626]">0</p>
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#2563EB]" />
-                </div>
-              ) : (
-                <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Teacher</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Subject</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Classroom</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Day</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Time</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Capacity</th>
-                        <th className="px-6 py-3 text-right text-xs font-semibold text-[#64748B] uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-[#E2E8F0]">
-                      {schedules.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="px-6 py-8 text-center text-[#64748B]">No schedules yet. Click "Add Schedule" to create one.</td>
-                        </tr>
-                      ) : schedules.map((slot) => (
-                        <tr key={slot.id} className="hover:bg-[#F8FAFC] transition-colors">
-                          <td className="px-6 py-4 text-sm font-medium text-[#1E293B]">
-                            {slot.users?.full_name || 'Unknown Teacher'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{slot.subject}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{slot.classroom}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{slot.day_of_week}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B] font-mono">
-                            {slot.start_time.slice(0,5)} – {slot.end_time.slice(0,5)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{slot.student_capacity}</td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleDeleteSchedule(slot.id, slot.subject)}
-                              className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4 text-[#DC2626]" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ================================================================
-              REPORTS TAB
-          ================================================================ */}
-          {activeTab === 'reports' && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-[#64748B]">Generate official documents and compliance reports</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                  { label: 'Transcripts', desc: 'Generate official academic transcripts for students', color: 'from-[#DBEAFE] to-[#BFDBFE]', iconColor: 'text-[#2563EB]', btnColor: 'bg-[#2563EB] hover:bg-[#1D4ED8]', icon: FileText },
-                  { label: 'Report Cards', desc: 'Create semester and annual report cards', color: 'from-[#D1FAE5] to-[#A7F3D0]', iconColor: 'text-[#10B981]', btnColor: 'bg-[#10B981] hover:bg-[#059669]', icon: ClipboardList },
-                  { label: 'Compliance', desc: 'Government and regulatory compliance reports', color: 'from-[#FEF3C7] to-[#FDE68A]', iconColor: 'text-[#F59E0B]', btnColor: 'bg-[#F59E0B] hover:bg-[#D97706]', icon: Shield },
-                  { label: 'Attendance', desc: 'Comprehensive attendance reports and analytics', color: 'from-[#E9D5FF] to-[#DDD6FE]', iconColor: 'text-[#8B5CF6]', btnColor: 'bg-[#8B5CF6] hover:bg-[#7C3AED]', icon: Users },
-                  { label: 'Performance', desc: 'Student and teacher performance analytics', color: 'from-[#FECACA] to-[#FCA5A5]', iconColor: 'text-[#DC2626]', btnColor: 'bg-[#DC2626] hover:bg-[#B91C1C]', icon: Clock },
-                  { label: 'Custom Reports', desc: 'Build custom reports with advanced filters', color: 'from-[#BFDBFE] to-[#93C5FD]', iconColor: 'text-[#2563EB]', btnColor: 'bg-[#64748B] hover:bg-[#475569]', icon: Calendar },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.label} className="bg-white border-2 border-[#E2E8F0] rounded-lg p-6 hover:shadow-lg transition-shadow">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-12 h-12 bg-gradient-to-br ${item.color} rounded-lg flex items-center justify-center`}>
-                          <Icon className={`w-6 h-6 ${item.iconColor}`} />
-                        </div>
-                        <h3 className="text-lg font-bold text-[#1E293B]">{item.label}</h3>
-                      </div>
-                      <p className="text-sm text-[#64748B] mb-4">{item.desc}</p>
-                      <button className={`w-full flex items-center justify-center gap-2 px-4 py-2 ${item.btnColor} text-white rounded-lg font-semibold text-sm transition-colors`}>
-                        <Download className="w-4 h-4" /> Generate {item.label}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

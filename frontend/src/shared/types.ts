@@ -230,6 +230,18 @@ export interface Announcement {
   isNew: boolean;
 }
 
+export interface SystemNotification {
+  id: string;
+  notification_type: string;
+  subject: string;
+  message: string;
+  sent_by: string;
+  delivery_method: string;
+  recipient_count: number;
+  status: string;
+  sent_at: string;
+}
+
 export interface GanttItem {
   task: string;
   startDay: number;

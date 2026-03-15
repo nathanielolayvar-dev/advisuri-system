@@ -18,6 +18,4 @@ gunicorn
 numpy 
 pandas 
 scikit-learn
-joblib
-apexcharts 
-react-apexcharts
+joblib 

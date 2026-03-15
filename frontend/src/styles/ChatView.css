@@ -206,6 +206,93 @@
   border-bottom-left-radius: 0.25rem;
 }
 
+/* Link card styling for message URLs */
+.link-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #0f172a;
+}
+
+/* When shown in the blue "self" bubble, make the card readable */
+.bubble.self .link-card {
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.link-card-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background-color: rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+  flex-shrink: 0;
+}
+
+.bubble.self .link-card-icon {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: rgba(15, 23, 42, 0.85);
+}
+
+.link-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-card-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  color: inherit;
+}
+
+.link-card-url {
+  font-size: 0.75rem;
+  color: rgba(37, 99, 235, 0.9);
+  word-break: break-all;
+}
+
+.bubble.self .link-card-url {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.link-card-url:hover {
+  text-decoration: underline;
+}
+
+/* Image preview in chat */
+.message-image-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 350px;
+  width: 100%;
+}
+
+.message-image {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.message-image-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: left;
+  word-break: break-word;
+}
+
 .sender-name {
   font-size: 0.75rem;
   font-weight: 600;

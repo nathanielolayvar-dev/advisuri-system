@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Announcement,
   GanttItem,
+  SystemNotification,
 } from '../../shared/types';
 
 // Import Utilities
@@ -21,6 +22,7 @@ import {
 //Component Imports
 import { GanttChart } from './ui/GanttChart';
 import { AnnouncementsSidebar } from './ui/AnnouncementsSidebar';
+import { SystemNotificationsSidebar } from './ui/SystemNotificationsSidebar';
 
 // Extended task type with group info
 interface DashboardTask {
@@ -42,7 +44,21 @@ export default function DashboardView() {
   // State for Database Data
   const [tasks, setTasks] = useState<DashboardTask[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [systemNotifications, setSystemNotifications] = useState<SystemNotification[]>([]);
+  const [readNotifications, setReadNotifications] = useState<SystemNotification[]>([]);
+  const [showRead, setShowRead] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const unreadCount = systemNotifications.length;
+
+  const readNotificationIds = useMemo(
+    () => new Set(readNotifications.map((n) => n.id)),
+    [readNotifications]
+  );
+
+  const displayedNotifications = showRead
+    ? [...systemNotifications, ...readNotifications]
+    : systemNotifications;
 
   const [sortOrder, setSortOrder] = useState<SortOrder>('high-to-low');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -107,8 +123,38 @@ export default function DashboardView() {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(5);
-          
+
         setAnnouncements(announcementsData || []);
+
+        // Fetch read notifications for current user (per-user read state)
+        const { data: readRows, error: readRowsError } = await supabase
+          .from('user_notification_reads')
+          .select('notification_id')
+          .eq('user_id', currentUserId);
+
+        if (readRowsError) {
+          console.warn('Unable to load read notification states, falling back to global status:', readRowsError);
+        }
+
+        const readIds = (readRows || []).map((r: any) => r.notification_id);
+
+        // Fetch the latest notifications (limit for UI performance)
+        const { data: systemNotificationsData, error: notificationsError } = await supabase
+          .from('system_notifications')
+          .select('*')
+          .order('sent_at', { ascending: false })
+          .limit(20);
+
+        if (notificationsError) throw notificationsError;
+
+        // Show notifications that the current user has not marked as read, OR notifications this user created.
+        const filteredNotifications = (systemNotificationsData || []).filter((notification: any) => {
+          const isCreator = notification.sent_by === currentUserId;
+          const isRead = readIds.includes(notification.id);
+          return isCreator || !isRead;
+        });
+
+        setSystemNotifications(filteredNotifications);
 
       } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -121,6 +167,64 @@ export default function DashboardView() {
       fetchDashboardData();
     }
   }, [currentUserId]);
+
+  // Track viewport size so we can show notifications on mobile
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleDismissNotification = async (id: string) => {
+    if (!currentUserId) return;
+
+    try {
+      // Record that this user has read this notification
+      const { error } = await supabase
+        .from('user_notification_reads')
+        .upsert(
+          { user_id: currentUserId, notification_id: id },
+          { onConflict: 'user_id,notification_id' }
+        );
+      if (error) throw error;
+
+      const dismissed = systemNotifications.find((n) => n.id === id);
+      if (dismissed) {
+        setReadNotifications((prev) => [dismissed, ...prev]);
+      }
+      setSystemNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.error('Failed to dismiss notification:', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!currentUserId) return;
+
+    try {
+      const rows = systemNotifications.map((n) => ({
+        user_id: currentUserId,
+        notification_id: n.id,
+      }));
+      if (rows.length === 0) return;
+
+      const { error } = await supabase
+        .from('user_notification_reads')
+        .upsert(rows, { onConflict: 'user_id,notification_id' });
+      if (error) throw error;
+
+      setReadNotifications((prev) => [...systemNotifications, ...prev]);
+      setSystemNotifications([]);
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+    }
+  };
+
+  const handleClearReadHistory = () => {
+    setReadNotifications([]);
+    setShowRead(false);
+  };
 
   // Sort tasks
   const sortedTasks = useMemo(() => {
@@ -197,17 +301,37 @@ export default function DashboardView() {
     <div className="space-y-6">
       {/* 1. Hero Section */}
       <header className="bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] rounded-xl p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
-        <p className="text-blue-100 opacity-90">
-          You have{' '}
-          <span className="font-bold underline">{tasks.length} tasks</span>{' '}
-          requiring attention across your groups.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
+            <p className="text-blue-100 opacity-90">
+              You have{' '}
+              <span className="font-bold underline">{tasks.length} tasks</span>{' '}
+              requiring attention across your groups.
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm font-semibold">Unread</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-700 text-sm font-semibold">
+                {unreadCount}
+              </span>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* 2. Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Mobile-only system notifications */}
+          {isMobile && (
+            <SystemNotificationsSidebar
+              notifications={systemNotifications}
+              onDismiss={handleDismissNotification}
+              onMarkAllRead={handleMarkAllRead}
+            />
+          )}
           <section className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden">
             <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -319,8 +443,19 @@ export default function DashboardView() {
           <GanttChart data={ganttItems} totalDays={30} />
         </div>
 
-        <aside className="lg:col-span-1">
+        <aside className="lg:col-span-1 space-y-6 hidden lg:block">
           <AnnouncementsSidebar announcements={announcements} />
+          <SystemNotificationsSidebar
+            notifications={displayedNotifications}
+            onDismiss={handleDismissNotification}
+            onMarkAllRead={handleMarkAllRead}
+            showReadToggle={true}
+            showRead={showRead}
+            onToggleShowRead={() => setShowRead((prev) => !prev)}
+            readCount={readNotifications.length}
+            readIds={Array.from(readNotificationIds)}
+            onClearReadHistory={handleClearReadHistory}
+          />
         </aside>
       </div>
     </div>

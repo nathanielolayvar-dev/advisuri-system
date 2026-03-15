@@ -155,7 +155,7 @@ export const Sidebar: React.FC = () => {
               {loading ? 'Loading...' : (userData?.name || 'User')}
             </p>
             <p className="text-[10px] text-[#64748B] font-medium">
-              ID: {userData?.id || '-------'}
+              {userData?.email || 'No email'}
             </p>
           </div>
         </div>

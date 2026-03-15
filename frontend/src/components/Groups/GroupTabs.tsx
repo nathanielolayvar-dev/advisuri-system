@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Plus, Settings, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Users, Plus, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { Group } from '../../shared/types';
 
 interface GroupTabsProps {
@@ -54,9 +54,6 @@ export const GroupTabs = ({
               <p className="text-xs text-slate-400">{groups.length} workspaces</p>
             </div>
           </div>
-          <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Search Bar */}
