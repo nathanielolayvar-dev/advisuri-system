@@ -10,7 +10,7 @@ import ProtectedRoute from './components/ProtectedRoutes';
 import { ACCESS_TOKEN } from './constants';
 import { supabase } from './supabaseClient';
 import Analytics from "./pages/AnalyticalPage";
-import { SidebarProvider } from './components/Sidebar/SidebarContext';
+import { SidebarProvider, useSidebar } from './components/Sidebar/SidebarContext';
 import { UserProfileProvider } from './contexts/UserProfileContext';
 
 function Logout(): React.JSX.Element {
@@ -21,6 +21,40 @@ function Logout(): React.JSX.Element {
 function RegisterAndLogout(): React.JSX.Element {
   localStorage.clear();
   return <Register />;
+}
+
+// Wrapper component to redirect admin users away from certain routes
+function AdminRouteGuard({ children }: { children: React.ReactNode }) {
+  const { userData, loading } = useSidebar();
+  const isAdminUser = userData?.isAdmin === true;
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // If admin, redirect to admin page
+  if (isAdminUser) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Wrapper for admin-only routes (redirects non-admins)
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { userData, loading } = useSidebar();
+  const isAdminUser = userData?.isAdmin === true;
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // If not admin, redirect to dashboard (or groups for students)
+  if (!isAdminUser) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function App(): React.JSX.Element {
@@ -83,13 +117,15 @@ function App(): React.JSX.Element {
       <SidebarProvider>
         <UserProfileProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/groups"/>} />
+            <Route path="/" element={<Navigate to="/admin"/>} />
             
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <DashboardPage />
+                  <AdminRouteGuard>
+                    <DashboardPage />
+                  </AdminRouteGuard>
                 </ProtectedRoute>
               }
             />
@@ -98,7 +134,9 @@ function App(): React.JSX.Element {
               path="/groups"
               element={
                 <ProtectedRoute>
-                  <GroupPage />
+                  <AdminRouteGuard>
+                    <GroupPage />
+                  </AdminRouteGuard>
                 </ProtectedRoute>
               }
             />
@@ -107,7 +145,9 @@ function App(): React.JSX.Element {
               path="/admin"
               element={
                 <ProtectedRoute>
-                  <AdminPage />
+                  <AdminOnlyRoute>
+                    <AdminPage />
+                  </AdminOnlyRoute>
                 </ProtectedRoute>
               }
             />
@@ -116,7 +156,9 @@ function App(): React.JSX.Element {
               path="/analytics"
               element={
                 <ProtectedRoute>
-                  <Analytics />
+                  <AdminRouteGuard>
+                    <Analytics />
+                  </AdminRouteGuard>
                 </ProtectedRoute>
               }
             />
