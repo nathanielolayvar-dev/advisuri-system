@@ -351,19 +351,31 @@ export interface AnalyticsResponse {
     pulse: number;
     velocity: number;
     forecast_end_date: string;
-    ai_risk_level: 'High' | 'Low' | 'Medium';
+    ai_risk_level: string;
     team_balance_score: number;
     buffer_days: number;
+    // Add these if you are using them in the Risk Matrix
+    risk_likelihood?: number;
+    risk_impact?: number;
+    risk_urgency?: number;
   };
-  user_status: {
-    user_id: string;
-    bandwidth_available: string;
-    burnout_risk: string;
+  member_report: Array<{
+    name: string;
+    active_tasks: number;
+    risk_score: string;
+  }>;
+  // This is the section causing your error!
+  // We must define these arrays for TypeScript to allow them.
+  history: {
+    dates: string[];
+    completed_counts: number[];
+    total_counts?: number[];
+    velocity_trend?: number[];
+    // This matches the variable in your screenshot:
+    prediction_dates: string[];
+    backlog_prediction: number[];
+    incoming_prediction: number[];
   };
-  alerts: {
-    bottlenecks: string[];
-  };
-  member_report: MemberBandwidth[];
 }
 
 export interface ChartPackage {
