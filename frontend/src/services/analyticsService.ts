@@ -1,74 +1,56 @@
-import api from '../api';
+import api from '../api'; // Your Axios instance
 import { AnalyticsResponse } from '../shared/types';
-
-// Mock data for demo purposes when API is not available
-const mockAnalyticsData: AnalyticsResponse = {
-  group_id: '1',
-  metrics: {
-    pulse: 78,
-    velocity: 4.2,
-    forecast_end_date: '2026-04-15',
-    ai_risk_level: 'Medium',
-    team_balance_score: 72,
-    buffer_days: 5,
-  },
-  user_status: {
-    user_id: '1',
-    bandwidth_available: 'Medium',
-    burnout_risk: 'Low',
-  },
-  alerts: {
-    bottlenecks: ['Task assignment imbalance'],
-  },
-  member_report: [
-    { name: 'Alice', active_tasks: 3, risk_score: 'Low', status_color: 'green' },
-    { name: 'Bob', active_tasks: 5, risk_score: 'Medium', status_color: 'yellow' },
-    { name: 'Charlie', active_tasks: 2, risk_score: 'Low', status_color: 'green' },
-    { name: 'Diana', active_tasks: 4, risk_score: 'Medium', status_color: 'yellow' },
-  ],
-};
 
 /**
  * Service to handle all AI-driven analytical data fetching.
- * Uses the AnalyticsResponse interface to ensure type safety.
+ * Connects directly to the Django Rest Framework backend.
  */
 export const analyticsService = {
   /**
-   * Fetches the complete Health Snapshot for a specific group.
-   * @param groupId - The ID of the group to analyze.
+   * Fetches the real-time AI Analysis for a specific group.
+   * This calls the 'run_comprehensive_analysis' method in your Django backend.
    */
   getGroupAnalytics: async (
     groupId: string | number
   ): Promise<AnalyticsResponse> => {
-    /**Promise<AnalyticsResponse> create a contract between backend and frontend */
     try {
-      // Assuming your Django API endpoint is /api/analytics/<group_id>/
+      // 1. Hit the Django endpoint we built
       const response = await api.get<AnalyticsResponse>(
-        `/api/analytics/${groupId}/`
+        `/analytics/group/${groupId}/`
       );
+
+      // 2. Return the data to the AnalyticsPage
       return response.data;
-    } catch (error) {
-      console.error(`Error fetching analytics for group ${groupId}:`, error);
-      // Return mock data if API fails (for demo purposes)
-      console.warn('Using mock analytics data for demo');
-      return mockAnalyticsData;
+    } catch (error: any) {
+      // 3. Log specific database/engine errors for debugging
+      console.error(
+        `[AI Engine Error] Failed to analyze group ${groupId}:`,
+        error.response?.data || error.message
+      );
+
+      // We throw the error so the AnalyticsPage.tsx catches it and shows the "Retry" screen
+      throw error;
     }
   },
 
   /**
-   * Optional: Helper to refresh analytics specifically
+   * Triggers a fresh re-calculation of the ML models.
+   * Useful if the user just updated many tasks and wants to see an immediate impact on the forecast.
    */
   refreshAnalytics: async (
     groupId: string | number
   ): Promise<AnalyticsResponse> => {
     try {
+      // We use POST here to signal a state change/refresh on the backend
       const response = await api.post<AnalyticsResponse>(
-        `/api/analytics/${groupId}/refresh/`
+        `/analytics/group/${groupId}/refresh/`
       );
       return response.data;
     } catch (error) {
-      console.warn('Using mock analytics data for demo');
-      return mockAnalyticsData;
+      console.error(
+        `[Refresh Error] could not update AI models for group ${groupId}`
+      );
+      throw error;
     }
   },
 };
