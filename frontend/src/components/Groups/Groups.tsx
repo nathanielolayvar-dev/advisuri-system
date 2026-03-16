@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar } from 'lucide-react';
+import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar, Bell } from 'lucide-react';
 import { GroupTabs } from './GroupTabs';
 import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
@@ -8,11 +8,12 @@ import { TasksView } from './views/TasksView';
 import { TimelineView } from './views/TimelineView';
 import { ScheduleView } from './views/ScheduleView';
 import { VideoCall } from './views/VideoCall';
+import { NotifyView } from './views/NotifyView';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
 import { useSearchParams } from 'react-router-dom';
 
-type ViewType = 'chat' | 'tasks' | 'timeline' | 'schedule';
+type ViewType = 'chat' | 'tasks' | 'timeline' | 'schedule' | 'notify';
 
 const MemberStack = ({ members }: { members: any[] }) => {
   const displayLimit = 4;
@@ -65,7 +66,7 @@ export const Groups = () => {
       const groupExists = groups.some(g => g.id === groupId);
       if (groupExists) {
         setSelectedGroupId(groupId);
-        if (view === 'tasks' || view === 'timeline' || view === 'chat' || view === 'schedule') {
+        if (view === 'tasks' || view === 'timeline' || view === 'chat' || view === 'schedule' || view === 'notify') {
           setActiveView(view);
         }
       }
@@ -316,6 +317,7 @@ export const Groups = () => {
 
               <div className="flex gap-6 mt-6 -mb-px">
                 {([
+                  { id: 'notify', icon: Bell, label: 'Announcements' },
                   { id: 'chat', icon: MessageSquare, label: 'Chat & Docs' },
                   { id: 'tasks', icon: FileText, label: 'Tasks' },
                   { id: 'timeline', icon: Clock, label: 'Timeline' },
@@ -345,6 +347,7 @@ export const Groups = () => {
                   {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
                   {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
                   {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} />}
+                  {activeView === 'notify' && <NotifyView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
                 </div>
               )}
             </div>

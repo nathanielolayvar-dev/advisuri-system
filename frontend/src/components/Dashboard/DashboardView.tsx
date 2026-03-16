@@ -117,19 +117,47 @@ export default function DashboardView() {
 
         setTasks(formattedTasks);
 
-        // Also fetch announcements if needed
-        const { data: announcementsData } = await supabase
-          .from('announcements')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5);
+        // Fetch read announcement states
+        const { data: readAnnRows } = await supabase
+          .from('user_announcement_reads')
+          .select('announcement_id')
+          .eq('user_id', currentUserId);
+        
+        const readAnnIds = new Set((readAnnRows || []).map((r: any) => r.announcement_id));
 
-        setAnnouncements(announcementsData || []);
+        // Fetch announcements from group_announcements
+        const { data: announcementsData, error: annError } = await supabase
+          .from('group_announcements')
+          .select(`
+            id, title, content, created_at, group_id,
+            groups ( group_name ),
+            users!group_announcements_author_id_fkey ( full_name )
+          `)
+          .in('group_id', userGroupIds)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (annError) console.error("Announcements error:", annError);
+
+        const formattedAnnouncements: Announcement[] = (announcementsData || [])
+          .filter((ann: any) => !readAnnIds.has(ann.id))
+          .map((ann: any) => ({
+            id: ann.id,
+            title: ann.title,
+            group: ann.groups?.group_name || 'Unknown Group',
+            author: ann.users?.full_name || 'Teacher',
+            content: ann.content,
+            time: ann.created_at,
+            avatar: ann.users?.full_name?.charAt(0) || 'T',
+            isNew: true
+          }));
+
+        setAnnouncements(formattedAnnouncements);
 
         // Fetch read notifications for current user (per-user read state)
         const { data: readRows, error: readRowsError } = await supabase
           .from('user_notification_reads')
-          .select('notification_id')
+          .select('notification_id, is_cleared')
           .eq('user_id', currentUserId);
 
         if (readRowsError) {
@@ -137,6 +165,7 @@ export default function DashboardView() {
         }
 
         const readIds = (readRows || []).map((r: any) => r.notification_id);
+        const clearedIds = new Set((readRows || []).filter((r: any) => r.is_cleared).map((r: any) => r.notification_id));
 
         // Fetch the latest notifications (limit for UI performance)
         const { data: systemNotificationsData, error: notificationsError } = await supabase
@@ -147,14 +176,22 @@ export default function DashboardView() {
 
         if (notificationsError) throw notificationsError;
 
-        // Show notifications that the current user has not marked as read, OR notifications this user created.
-        const filteredNotifications = (systemNotificationsData || []).filter((notification: any) => {
-          const isCreator = notification.sent_by === currentUserId;
-          const isRead = readIds.includes(notification.id);
-          return isCreator || !isRead;
+        const unreadNotifs: any[] = [];
+        const readNotifs: any[] = [];
+
+        (systemNotificationsData || []).forEach((notification: any) => {
+          if (clearedIds.has(notification.id)) {
+            return; // Skip cleared notifications completely
+          }
+          if (readIds.includes(notification.id)) {
+            readNotifs.push(notification);
+          } else {
+            unreadNotifs.push(notification);
+          }
         });
 
-        setSystemNotifications(filteredNotifications);
+        setSystemNotifications(unreadNotifs);
+        setReadNotifications(readNotifs);
 
       } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -191,11 +228,32 @@ export default function DashboardView() {
 
       const dismissed = systemNotifications.find((n) => n.id === id);
       if (dismissed) {
-        setReadNotifications((prev) => [dismissed, ...prev]);
+        setReadNotifications((prev) => {
+          if (prev.some(n => n.id === id)) return prev;
+          return [dismissed, ...prev];
+        });
       }
       setSystemNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
       console.error('Failed to dismiss notification:', err);
+    }
+  };
+
+  const handleDismissAnnouncement = async (id: string | number) => {
+    if (!currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_announcement_reads')
+        .upsert(
+          { user_id: currentUserId, announcement_id: id },
+          { onConflict: 'user_id,announcement_id' }
+        );
+      if (error) throw error;
+
+      setAnnouncements((prev) => prev.filter((ann) => ann.id !== id));
+    } catch (err) {
+      console.error('Failed to dismiss announcement:', err);
     }
   };
 
@@ -214,16 +272,49 @@ export default function DashboardView() {
         .upsert(rows, { onConflict: 'user_id,notification_id' });
       if (error) throw error;
 
-      setReadNotifications((prev) => [...systemNotifications, ...prev]);
+      setReadNotifications((prev) => {
+        const existingIds = new Set(prev.map(n => n.id));
+        const newNotifs = systemNotifications.filter(n => !existingIds.has(n.id));
+        return [...newNotifs, ...prev];
+      });
       setSystemNotifications([]);
     } catch (err) {
       console.error('Failed to mark all notifications read:', err);
     }
   };
 
-  const handleClearReadHistory = () => {
+  const handleClearReadHistory = async () => {
+    if (!currentUserId || readNotifications.length === 0) return;
+
+    // Optimistically update the UI to make the button feel instant
+    const previousNotifications = [...readNotifications];
     setReadNotifications([]);
     setShowRead(false);
+
+    try {
+      // Deduplicate to avoid PostgreSQL "ON CONFLICT DO UPDATE command cannot affect row a second time"
+      const uniqueRowsMap = new Map();
+      previousNotifications.forEach((n) => {
+        uniqueRowsMap.set(n.id, {
+          user_id: currentUserId,
+          notification_id: n.id,
+          is_cleared: true,
+        });
+      });
+      const rowsToUpdate = Array.from(uniqueRowsMap.values());
+
+      const { error } = await supabase
+        .from('user_notification_reads')
+        .upsert(rowsToUpdate, { onConflict: 'user_id,notification_id' });
+        
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Failed to clear read history:', err);
+      // Revert UI on failure and alert the user
+      setReadNotifications(previousNotifications);
+      setShowRead(true);
+      alert(`Failed to clear history in database. Error: ${err.message}`);
+    }
   };
 
   // Sort tasks
@@ -310,27 +401,22 @@ export default function DashboardView() {
               requiring attention across your groups.
             </p>
           </div>
-          {unreadCount > 0 && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm font-semibold">Unread</span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-700 text-sm font-semibold">
-                {unreadCount}
-              </span>
-            </div>
-          )}
         </div>
       </header>
 
       {/* 2. Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Mobile-only system notifications */}
+          {/* Mobile-only notifications and announcements */}
           {isMobile && (
-            <SystemNotificationsSidebar
-              notifications={systemNotifications}
-              onDismiss={handleDismissNotification}
-              onMarkAllRead={handleMarkAllRead}
-            />
+            <div className="space-y-6">
+              <SystemNotificationsSidebar
+                notifications={systemNotifications}
+                onDismiss={handleDismissNotification}
+                onMarkAllRead={handleMarkAllRead}
+              />
+              <AnnouncementsSidebar announcements={announcements} onDismiss={handleDismissAnnouncement} />
+            </div>
           )}
           <section className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden">
             <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between">
@@ -444,7 +530,6 @@ export default function DashboardView() {
         </div>
 
         <aside className="lg:col-span-1 space-y-6 hidden lg:block">
-          <AnnouncementsSidebar announcements={announcements} />
           <SystemNotificationsSidebar
             notifications={displayedNotifications}
             onDismiss={handleDismissNotification}
@@ -456,6 +541,7 @@ export default function DashboardView() {
             readIds={Array.from(readNotificationIds)}
             onClearReadHistory={handleClearReadHistory}
           />
+          <AnnouncementsSidebar announcements={announcements} onDismiss={handleDismissAnnouncement} />
         </aside>
       </div>
     </div>
