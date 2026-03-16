@@ -86,20 +86,26 @@ export const Sidebar: React.FC = () => {
 
         {/* Navigation Items */}
         <nav className="space-y-2">
-          <NavItem
-            icon={<LayoutDashboard size={24} />}
-            label="Dashboard"
-            isPinned={isExpanded}
-            active={isActive('/dashboard')}
-            onClick={() => navigate('/dashboard')}
-          />
-          <NavItem
-            icon={<BookOpen size={22} />}
-            label="Analytics"
-            isPinned={isExpanded}
-            active={isActive('/analytics')}
-            onClick={() => navigate('/analytics')}
-          />
+          {/* Dashboard - Hidden for admin users */}
+          {!isAdminUser && (
+            <NavItem
+              icon={<LayoutDashboard size={24} />}
+              label="Dashboard"
+              isPinned={isExpanded}
+              active={isActive('/dashboard')}
+              onClick={() => navigate('/dashboard')}
+            />
+          )}
+          {/* Analytics - Hidden for admin users */}
+          {!isAdminUser && (
+            <NavItem
+              icon={<BookOpen size={22} />}
+              label="Analytics"
+              isPinned={isExpanded}
+              active={isActive('/analytics')}
+              onClick={() => navigate('/analytics')}
+            />
+          )}
           {/* Admin Link - Only visible for admin users */}
           {isAdminUser && (
             <NavItem
@@ -113,13 +119,16 @@ export const Sidebar: React.FC = () => {
           
           <div className={`my-2 border-t border-[#E2E8F0] ${isExpanded ? '' : 'mx-2'}`} />
           
-          <NavItem
-            icon={<Users size={22} />}
-            label="Groups"
-            isPinned={isExpanded}
-            active={isActive('/groups')}
-            onClick={() => navigate('/groups')}
-          />
+          {/* Groups - Hidden for admin users */}
+          {!isAdminUser && (
+            <NavItem
+              icon={<Users size={22} />}
+              label="Groups"
+              isPinned={isExpanded}
+              active={isActive('/groups')}
+              onClick={() => navigate('/groups')}
+            />
+          )}
           
           <div className={`my-2 border-t border-[#E2E8F0] ${isExpanded ? '' : 'mx-2'}`} />
           
