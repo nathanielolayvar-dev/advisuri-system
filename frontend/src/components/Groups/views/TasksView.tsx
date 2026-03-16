@@ -645,7 +645,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                     
                     {/* Submitted Files List */}
                     <div className="space-y-2 bg-slate-50 p-3 rounded border border-slate-100">
-                      {sub.api_attachment?.map((att: any) => (
+                      {sub.attachments?.map((att: any) => (
                         <div key={att.id} className="flex items-center gap-2 text-sm">
                           <FileText className="w-4 h-4 text-blue-500" />
                           <a href={`https://behbluflerhbslixhywa.supabase.co/storage/v1/object/public/capstone_submissions/${att.file_url}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-medium hover:underline truncate">
