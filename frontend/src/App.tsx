@@ -12,6 +12,8 @@ import { supabase } from './supabaseClient';
 import Analytics from "./pages/AnalyticalPage";
 import { SidebarProvider, useSidebar } from './components/Sidebar/SidebarContext';
 import { UserProfileProvider } from './contexts/UserProfileContext';
+import { useIdleTimer } from './hooks/useIdleTimer';
+import IdleWarningModal from './components/IdleWarningModal';
 
 function Logout(): React.JSX.Element {
   localStorage.clear();
@@ -55,6 +57,23 @@ function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+// Wrapper component that handles idle timeout
+function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
+  const { showWarning, remainingTime, logout, stayLoggedIn } = useIdleTimer();
+
+  return (
+    <>
+      {children}
+      <IdleWarningModal
+        show={showWarning}
+        remainingTime={remainingTime}
+        onStayLoggedIn={stayLoggedIn}
+        onLogout={logout}
+      />
+    </>
+  );
 }
 
 function App(): React.JSX.Element {
@@ -116,7 +135,8 @@ function App(): React.JSX.Element {
     <BrowserRouter>
       <SidebarProvider>
         <UserProfileProvider>
-          <Routes>
+          <IdleTimerWrapper>
+            <Routes>
             <Route path="/" element={<Navigate to="/admin"/>} />
             
             <Route
@@ -169,6 +189,7 @@ function App(): React.JSX.Element {
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </IdleTimerWrapper>
         </UserProfileProvider>
       </SidebarProvider>
     </BrowserRouter>
