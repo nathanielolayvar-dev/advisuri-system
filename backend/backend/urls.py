@@ -20,6 +20,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from backend.api.views import GroupAnalyticsDashboard
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     
@@ -28,6 +30,9 @@ urlpatterns = [
     
     # Standard DRF login (useful for the browsable API during testing)
     path("api-auth/", include("rest_framework.urls")),
+
+    # Analytics Dashboard Endpoint
+    path('api/analytics/<uuid:group_id>/', GroupAnalyticsDashboard.as_view())
 ]
 
 # Serve media files in development
