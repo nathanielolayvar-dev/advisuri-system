@@ -14,5 +14,8 @@ urlpatterns = [
     path("documents/", views.DocumentListCreate.as_view(), name="document-list"),
     path("documents/delete/<int:pk>/", views.DocumentDelete.as_view(), name="delete-document"),
     path("analytics/<int:group_id>/", views.GroupAnalyticsDashboard.as_view(), name="group-analytics"),
+
+    path("test-supabase/", views.SupabaseTestView.as_view()),
+
     path("", include(router.urls)),
 ]

@@ -19,6 +19,7 @@ from .analytics.analytics_engine import AnalyticsEngine
 import pandas as pd
 
 import psycopg2
+import psycopg2.extras
 import os
 
 
@@ -43,16 +44,52 @@ def fetch_supabase_data(query, params=None):
         host= os.getenv("DB_HOST"),
         port= os.getenv("DB_PORT"),
     )
-    cur = conn.cursor()
-    cur.execute(query, params)
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) 
+    cursor.execute(query, params)
+    data = cursor.fetchall()
     
-    columns = [desc[0] for desc in cur.description]
-    rows = cur.fetchall()
-    
-    cur.close()
+    cursor.close()
     conn.close()
 
-    return [dict(zip(columns, row)) for row in rows]
+    return data
+
+class SupabaseTestView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            conn = psycopg2.connect(
+                dbname="postgres",
+                user="postgres.behbluflerhbslixhywa",
+                password=os.getenv("DB_PWD"),
+                host="aws-1-ap-northeast-1.pooler.supabase.com",
+                port="5432"
+            )
+
+            cur = conn.cursor()
+
+            # ⚠️ Adjust table name if needed (groups vs group)
+            cur.execute("SELECT * FROM groups LIMIT 5;")
+
+            columns = [desc[0] for desc in cur.description]
+            rows = cur.fetchall()
+
+            cur.close()
+            conn.close()
+
+            results = [dict(zip(columns, row)) for row in rows]
+
+            return Response({
+                "status": "connected",
+                "count": len(results),
+                "data": results
+            })
+
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": str(e)
+            }, status=500)
 
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
@@ -141,14 +178,17 @@ class DocumentDelete(generics.DestroyAPIView):
 
 # Handles the logic for all 8 features by calling the methods
 class GroupAnalyticsDashboard(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, group_id):
         # 1. Validate group
+        # BEFORE querying Supabase
+        print("DEBUG group_id:", group_id)
+        print("TYPE:", type(group_id))  
         try:
             group_data = fetch_supabase_data(
-                "SELECT * FROM group WHERE id = %s",
-                (str(group_id),)
+                "SELECT * FROM groups WHERE group_id = %s",
+                (group_id,)
             )
 
             if not group_data:
@@ -157,31 +197,64 @@ class GroupAnalyticsDashboard(APIView):
             group = group_data[0]
         except Group.DoesNotExist:
             return Response({"error": "Group not found"}, status=404)
+        
+        print("Group query result:", group_data)
 
         # 2. Fetch data from DB
         tasks_data = fetch_supabase_data(
-            "SELECT * FROM task WHERE group_id = %s",
-            (str(group_id),)
+            "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, completed_at FROM tasks WHERE group_id = %s",
+            (group_id,)
         )
 
+        print("RAW TASKS DATA:", tasks_data[:2])
+
         messages_data = fetch_supabase_data(
-            "SELECT * FROM message WHERE group_id = %s",
-            (str(group_id),)
+            """
+            SELECT id, group_id, user_id, text, created_at
+            FROM chat_messages
+            WHERE group_id = %s
+            """,
+            (group_id,)
         )
 
         # 3. Convert to DataFrames
         tasks_df = pd.DataFrame(tasks_data)
-        messages_df = pd.DataFrame(messages_data)
 
-        # Debug (optional but recommended)
-        print("Tasks fetched:", len(tasks_data))
-        print("Messages fetched:", len(messages_data))
+        print("TASKS DF COLUMNS:", tasks_df.columns)
+
+        #Normalization: Handle both 'assigned_to' and 'assignee_id', and ensure 'end_date' exists
+        if not tasks_df.empty:
+            if "assigned_to" in tasks_df.columns:
+                tasks_df["user_id"] = tasks_df["assigned_to"]
+            else:
+                print("⚠️ assigned_to column missing")
+                tasks_df["user_id"] = None
+            tasks_df = tasks_df.rename(columns={
+                "due_date": "end_date"
+            })
+        
+            if "is_overdue" not in tasks_df.columns:
+                tasks_df["is_overdue"] = False
+
+        messages_df = pd.DataFrame(
+            messages_data,
+            columns=["id", "group_id", "text", "created_at", "user_id"]
+        )
+
+        if messages_df.empty:
+            print("⚠️ No messages found for this group")
+
+            # Create fallback structure
+            messages_df = pd.DataFrame(columns=[
+                "id", "group_id", "text", "created_at", "user_id"
+            ])
 
         # 4. Initialize engine
         engine = AnalyticsEngine(tasks_df, messages_df)
 
         # 5. Prepare inputs
-        deadline_str = group.get("deadline", "2026-12-31")
+        # No deadline in DB → temporary fallback
+        deadline_str = "2026-12-31"
 
         current_user_id = (
             request.user.id if request.user.is_authenticated else None
@@ -226,22 +299,28 @@ class GroupAnalyticsDashboard(APIView):
         if tasks_df.empty:
             return report
 
-        # Ensure correct column exists
-        assignee_col = "assignee_id" if "assignee_id" in tasks_df.columns else "assigned_to"
+        members = fetch_supabase_data("""
+            SELECT u.user_id, u.full_name
+            FROM users u
+            JOIN group_members gm ON u.user_id = gm.user_id
+            WHERE gm.group_id = %s
+        """, (group["group_id"],))
 
-        for member in group.members.all():
+        for member in members:
             member_tasks = tasks_df[
-                (tasks_df[assignee_col] == member.id) &
+                (tasks_df['assigned_to'] == member["user_id"]) &
                 (tasks_df['progress_percentage'] < 100)
             ]
 
             load_count = len(member_tasks)
 
-            # FIX: call local method (NOT engine unless moved there)
-            risk_score = self.predict_member_bandwidth(member.id, load_count)
+            risk_score = engine.predict_member_bandwidth(
+                 member["user_id"],
+                load_count
+            )
 
             report.append({
-                "name": member.username,
+                "name": member.get("full_name", "Unknown"),
                 "active_tasks": load_count,
                 "risk_score": risk_score,
                 "status_color": (

@@ -16,7 +16,7 @@ export const analyticsService = {
     try {
       // 1. Hit the Django endpoint we built
       const response = await api.get<AnalyticsResponse>(
-        `/analytics/group/${groupId}/`
+        `/analytics/${groupId}/`
       );
 
       // 2. Return the data to the AnalyticsPage
@@ -43,7 +43,7 @@ export const analyticsService = {
     try {
       // We use POST here to signal a state change/refresh on the backend
       const response = await api.post<AnalyticsResponse>(
-        `/analytics/group/${groupId}/refresh/`
+        `/analytics/${groupId}/refresh/`
       );
       return response.data;
     } catch (error) {

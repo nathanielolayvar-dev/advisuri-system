@@ -58,10 +58,20 @@ class AnalyticsEngine:
         # 2. Task Velocity
         # Note: Internally, task_velocity should now look for tasks_df['progress_percentage'] == 100
         velocity_stats = calculate_velocity(self.tasks_df)
-        velocity_value = velocity_stats.get('daily_velocity', 0)
+
+        velocity_value = (
+            velocity_stats.get('daily_velocity', 0)
+            if isinstance(velocity_stats, dict)
+            else velocity_stats
+        )
 
         # 3. Completion Forecast
         forecast_date = get_forecast_date(self.tasks_df, velocity_value)
+        # Validate forecast_date
+        if forecast_date == "Need more data" or forecast_date is None:
+            buffer_days = 0
+        else:
+            buffer_days = calculate_buffer(forecast_date, deadline_str)
 
         # 4. At-Risk Detection (Using 1M Row Model)
         # Using the column 'is_overdue' which we added to your DB
@@ -82,7 +92,6 @@ class AnalyticsEngine:
         bottlenecks = analyze_workload_dynamics(self.tasks_df)
 
         # 7. Milestone Buffer (Compare forecast to your manual deadline)
-        buffer_days = calculate_buffer(forecast_date, deadline_str)
 
         # 8. Member Bandwidth (Specific to logged-in user)
         bandwidth = calculate_detailed_bandwidth(self.tasks_df, user_id)

@@ -9,7 +9,7 @@ def calculate_velocity(tasks_df):
     completed = tasks_df[tasks_df['status'].str.lower() == 'completed'].copy()
     
     if len(completed) < 2:
-        return 0.0
+        return {"daily_velocity": 0.0}
 
     # Feature Engineering
     completed['date_ordinal'] = pd.to_datetime(completed['completed_at']).apply(lambda x: x.toordinal())
@@ -20,6 +20,10 @@ def calculate_velocity(tasks_df):
 
     # ML Model
     model = LinearRegression().fit(X, y)
-    
-    # The slope (coef_) is the daily speed
-    return round(float(model.coef_[0]), 2)
+   
+    # ✅ Compute velocity (slope of the line)
+    velocity = model.coef_[0]
+
+    return {
+        "daily_velocity": float(velocity)
+    }
