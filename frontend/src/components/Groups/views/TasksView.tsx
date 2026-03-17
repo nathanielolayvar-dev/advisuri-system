@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Clock, User, Plus, ArrowLeft, Trash2, Paperclip, X, MoreVertical } from 'lucide-react';
+import { FileText, Clock, User, Plus, ArrowLeft, Trash2, Paperclip, X, MoreVertical, Users } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 import '../../../styles/NotesView.css';
 import { SupabaseTask, SupabaseTaskNote, SupabaseAttachment, Document } from '../../../shared/types';
+
+interface GroupMember {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role?: string;
+}
+
+interface Subtask {
+  id: string;
+  title: string;
+  assigned_to: string;
+}
 
 interface TasksViewProps {
   groupId: string | number;
@@ -14,7 +27,15 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const [tasks, setTasks] = useState<SupabaseTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<SupabaseTask | null>(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: '', status: '', due_date: '' });
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    priority: '', 
+    status: '', 
+    due_date: '',
+    parent_task_id: '',
+    assigned_to: ''
+  });
   const [notes, setNotes] = useState<SupabaseTaskNote[]>([]);
   const [noteContent, setNoteContent] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -30,40 +51,110 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
   const [feedback, setFeedback] = useState('');
   const [taskScore, setTaskScore] = useState<number | ''>('');
   const [isTaskMenuOpen, setIsTaskMenuOpen] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [subtasks, setSubtasks] = useState<SupabaseTask[]>([]);
+  const [newSubtasks, setNewSubtasks] = useState<{ title: string; assigned_to: string }[]>([]);
+  const [showSubtaskForm, setShowSubtaskForm] = useState(false);
 
   useEffect(() => {
-    if (groupId) fetchTasks();
+    if (groupId) {
+      fetchTasks();
+      fetchGroupMembers();
+    }
   }, [groupId]);
+
+  const fetchGroupMembers = async () => {
+    // Get group members from the group_members table joined with users table
+    const { data, error } = await supabase
+      .from('group_members')
+      .select(`
+        user_id,
+        users (
+          full_name,
+          email,
+          role
+        )
+      `)
+      .eq('group_id', groupId);
+    
+    if (!error && data) {
+      // Transform the data to flat structure
+      const members = data.map((item: any) => ({
+        user_id: item.user_id,
+        full_name: item.users?.full_name || '',
+        email: item.users?.email || '',
+        role: item.users?.role || ''
+      }));
+      setGroupMembers(members as GroupMember[]);
+    }
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
+    // Ensure groupId is converted to string for consistent comparison
+    const groupIdStr = String(groupId);
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('group_id', groupId)
+      .eq('group_id', groupIdStr)
       .order('created_at', { ascending: false });
-    if (!error) setTasks(data || []);
+    if (!error) {
+      setTasks(data || []);
+    } else {
+      console.error('Error fetching tasks:', error);
+    }
     setLoading(false);
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title) return;
-    const { error } = await supabase.from('tasks').insert([
-      {
-        title: newTask.title,
-        description: newTask.description,
-        group_id: groupId,
-        creator_id: userId,
-        status: 'pending',
-        due_date: newTask.due_date,
-        priority: newTask.priority,
-      },
-    ]);
-    if (!error) {
+    
+    try {
+      // First create the main task
+      const { data: mainTaskData, error: mainTaskError } = await supabase.from('tasks').insert([
+        {
+          title: newTask.title,
+          description: newTask.description,
+          group_id: groupId,
+          creator_id: userId,
+          status: 'pending',
+          due_date: newTask.due_date,
+          priority: newTask.priority,
+        },
+      ]).select().single();
+
+      if (mainTaskError) throw mainTaskError;
+
+      // If there are subtasks, create them with the main task as parent
+      if (newSubtasks.length > 0 && mainTaskData) {
+        const subtasksToCreate = newSubtasks
+          .filter(st => st.title.trim() !== '')
+          .map(st => ({
+            title: st.title,
+            description: '',
+            group_id: groupId,
+            creator_id: userId,
+            status: 'pending',
+            due_date: newTask.due_date,
+            priority: newTask.priority || 'medium',
+            parent_task_id: mainTaskData.id,
+            assigned_to: st.assigned_to || null,
+          }));
+
+        if (subtasksToCreate.length > 0) {
+          const { error: subtasksError } = await supabase.from('tasks').insert(subtasksToCreate);
+          if (subtasksError) throw subtasksError;
+        }
+      }
+
       setShowTaskForm(false);
-      setNewTask({ title: '', description: '', priority: '', status: '', due_date: '' });
+      setNewTask({ title: '', description: '', priority: '', status: '', due_date: '', parent_task_id: '', assigned_to: '' });
+      setNewSubtasks([]);
       fetchTasks();
+    } catch (err) {
+      console.error('Error creating task:', err);
+      alert('Failed to create task. Please try again.');
     }
   };
 
@@ -372,6 +463,31 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     }
   };
 
+  // Handle creating a single subtask from task details
+  const handleCreateSubtask = async (title: string, assignedTo: string) => {
+    if (!selectedTask || !title.trim()) return;
+    
+    try {
+      const { error } = await supabase.from('tasks').insert([{
+        title: title,
+        description: '',
+        group_id: groupId,
+        creator_id: userId,
+        status: 'pending',
+        due_date: selectedTask.due_date,
+        priority: selectedTask.priority || 'medium',
+        parent_task_id: selectedTask.id,
+        assigned_to: assignedTo || null,
+      }]);
+      
+      if (!error) {
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error('Error creating subtask:', err);
+    }
+  };
+
   if (selectedTask) {
     const isTeacher = isStaff;
     // @ts-ignore
@@ -385,13 +501,72 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
           <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <button onClick={goBack} className="mb-4 text-blue-600 text-sm flex items-center gap-1 font-medium hover:underline"><ArrowLeft className="w-4 h-4" /> Back to Tasks</button>
             
+            {/* Subtask Creation Form */}
+            {showSubtaskForm && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-blue-800 mb-3">Add Subtask</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Subtask title"
+                    id="newSubtaskInput"
+                    className="flex-1 px-3 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = document.getElementById('newSubtaskInput') as HTMLInputElement;
+                        const select = document.getElementById('subtaskAssignSelect') as HTMLSelectElement;
+                        if (input?.value) {
+                          handleCreateSubtask(input.value, select?.value || '');
+                          input.value = '';
+                          select.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <select
+                    id="subtaskAssignSelect"
+                    className="w-40 px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Assign to...</option>
+                    {groupMembers.filter(m => m.role !== 'teacher').map(m => (
+                      <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById('newSubtaskInput') as HTMLInputElement;
+                      const select = document.getElementById('subtaskAssignSelect') as HTMLSelectElement;
+                      if (input?.value) {
+                        handleCreateSubtask(input.value, select?.value || '');
+                        input.value = '';
+                        select.value = '';
+                        setShowSubtaskForm(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+            
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="text-2xl font-bold mb-1 text-slate-800">{selectedTask.title}</h2>
                 <p className="text-slate-600">{selectedTask.description}</p>
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {/* Add Subtask Button (for teachers) */}
+                {isStaff && !selectedTask.parent_task_id && (
+                  <button
+                    onClick={() => setShowSubtaskForm(!showSubtaskForm)}
+                    className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Add Subtask
+                  </button>
+                )}
                 {/* 1. NEUTRAL Final Grade Box */}
                 {/* @ts-ignore */}
                 {selectedTask.final_score !== null && selectedTask.final_score !== undefined && (
@@ -756,11 +931,12 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
           <div className="mb-8 p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
             <h4 className="text-lg font-semibold mb-4">Create New Task</h4>
             <form onSubmit={handleCreateTask} className="space-y-4">
+              {/* Main Task Fields */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Task Title</label>
                 <input
                   type="text"
-                  placeholder="e.g., Final Report Draft"
+                  placeholder="e.g., Final Report"
                   value={newTask.title}
                   required
                   onChange={(e) => setNewTask((t) => ({ ...t, title: e.target.value }))}
@@ -778,7 +954,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                   <select 
@@ -790,22 +966,94 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                     {priorities.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
                   </select>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
+                  <input
+                    type="datetime-local"
+                    value={newTask.due_date || ''}
+                    onChange={e => setNewTask(t => ({ ...t, due_date: e.target.value }))}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
-                <input
-                  type="datetime-local"
-                  value={newTask.due_date || ''}
-                  onChange={e => setNewTask(t => ({ ...t, due_date: e.target.value }))}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+              {/* Subtasks Section */}
+              <div className="border-t border-slate-200 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Subtasks (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewSubtasks([...newSubtasks, { title: '', assigned_to: '' }])}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <Plus size={16} /> Add Subtask
+                  </button>
+                </div>
+
+                {newSubtasks.length > 0 && (
+                  <div className="space-y-3">
+                    {newSubtasks.map((subtask, index) => (
+                      <div key={index} className="flex gap-2 items-start bg-slate-50 p-3 rounded-lg">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder={`Subtask ${index + 1} title`}
+                            value={subtask.title}
+                            onChange={(e) => {
+                              const updated = [...newSubtasks];
+                              updated[index].title = e.target.value;
+                              setNewSubtasks(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          />
+                        </div>
+                        <div className="w-48">
+                          <select
+                            value={subtask.assigned_to}
+                            onChange={(e) => {
+                              const updated = [...newSubtasks];
+                              updated[index].assigned_to = e.target.value;
+                              setNewSubtasks(updated);
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                          >
+                            <option value="">Assign to...</option>
+                            {groupMembers.filter(m => m.role !== 'teacher').map(m => (
+                              <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = newSubtasks.filter((_, i) => i !== index);
+                            setNewSubtasks(updated);
+                          }}
+                          className="text-slate-400 hover:text-red-500 p-1"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {newSubtasks.length === 0 && (
+                  <p className="text-sm text-slate-400 italic">Click "Add Subtask" to create subtasks with individual assignments</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button 
                   type="button" 
-                  onClick={() => setShowTaskForm(false)}
+                  onClick={() => {
+                    setShowTaskForm(false);
+                    setNewTask({ title: '', description: '', priority: '', status: '', due_date: '', parent_task_id: '', assigned_to: '' });
+                    setNewSubtasks([]);
+                  }}
                   className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
                 >
                   Cancel
@@ -814,7 +1062,7 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                   type="submit" 
                   className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
                 >
-                  Create Task
+                  {newSubtasks.length > 0 ? `Create Task (${newSubtasks.filter(st => st.title).length} subtasks)` : 'Create Task'}
                 </button>
               </div>
             </form>
@@ -822,50 +1070,92 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
         )}
 
         <div className="flex flex-col gap-4">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-all cursor-pointer group"
-              onClick={() => openTask(task)}
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
-                    {task.title}
-                  </h3>
-                  <p className="text-slate-600 text-sm line-clamp-2 mt-1">{task.description}</p>
+          {/* First render parent tasks (tasks without parent) */}
+          {tasks.filter(t => !t.parent_task_id).map((task) => {
+            const taskSubtasks = tasks.filter(st => st.parent_task_id === task.id);
+            return (
+              <div key={task.id} className="space-y-2">
+                <div
+                  className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-all cursor-pointer group"
+                  onClick={() => openTask(task)}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
+                        {task.title}
+                      </h3>
+                      <p className="text-slate-600 text-sm line-clamp-2 mt-1">{task.description}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-4
+                      ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
+                        task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' : 
+                        'bg-slate-100 text-slate-600'}`}
+                    >
+                      {task.status ? task.status.replace('-', ' ') : 'pending'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3 mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        {task.due_date 
+                          ? `Due ${new Date(task.due_date).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` 
+                          : 'No Due Date'
+                        }
+                      </span>
+                    </div>
+                    {task.priority && (
+                      <span className={`ml-auto px-2.5 py-0.5 rounded-full font-medium capitalize
+                        ${task.priority === 'high' ? 'bg-red-50 text-red-600' : 
+                          task.priority === 'medium' ? 'bg-amber-50 text-amber-600' : 
+                          'bg-slate-100 text-slate-500'}`}
+                      >
+                        {task.priority}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-4
-                  ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
-                    task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-slate-100 text-slate-600'}`
-                }>
-                  {task.status ? task.status.replace('-', ' ') : 'pending'}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3 mt-1">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>
-                    {task.due_date 
-                      ? `Due ${new Date(task.due_date).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` 
-                      : 'No Due Date'
-                    }
-                  </span>
-                </div>
-                {task.priority && (
-                  <span className={`ml-auto px-2.5 py-0.5 rounded-full font-medium capitalize
-                    ${task.priority === 'high' ? 'bg-red-50 text-red-600' : 
-                      task.priority === 'medium' ? 'bg-amber-50 text-amber-600' : 
-                      'bg-slate-100 text-slate-500'}`
-                  }>
-                    {task.priority}
-                  </span>
+                
+                {/* Render subtasks */}
+                {taskSubtasks.length > 0 && (
+                  <div className="ml-6 pl-4 border-l-2 border-blue-200 space-y-2">
+                    {taskSubtasks.map(subtask => (
+                      <div
+                        key={subtask.id}
+                        className="bg-blue-50 border border-blue-100 rounded-lg p-3 hover:bg-blue-100 transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTask(subtask);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-blue-800 font-medium text-sm">{subtask.title}</span>
+                          {subtask.assigned_to && (
+                            <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full">
+                              Assigned
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-blue-600">
+                          <span className={`px-2 py-0.5 rounded ${
+                            subtask.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
+                            subtask.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' : 
+                            'bg-slate-100 text-slate-600'}`
+                          }>
+                            {subtask.status || 'pending'}
+                          </span>
+                          {subtask.due_date && (
+                            <span>Due: {new Date(subtask.due_date).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {tasks.length === 0 && !loading && (
             <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">

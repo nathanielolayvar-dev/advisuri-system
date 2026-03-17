@@ -110,6 +110,7 @@ export interface SupabaseTask {
   max_score?: number;
   final_score?: number;
   assigned_to?: string; // UUID → users.user_id
+  parent_task_id?: string; // UUID → tasks.id (for subtasks)
   progress_percentage?: number;
   completed_at?: string;
   is_overdue?: boolean;
