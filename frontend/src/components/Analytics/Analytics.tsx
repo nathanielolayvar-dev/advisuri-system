@@ -1,5 +1,4 @@
-import React from 'react';
-import { GroupAnalytics } from '../../shared/types';
+import React, { useMemo } from 'react';
 import { AnalyticsResponse } from '../../shared/types';
 import { StatCard } from './StatCard';
 import Chart from 'react-apexcharts';
@@ -15,9 +14,40 @@ interface AnalyticsViewProps {
 }
 
 export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
+  // Prevent crash if API data hasn't loaded yet
+  if (!analyticsData) {
+    return <div className="p-6 text-slate-500">Loading analytics...</div>;
+  }
+  
   // 1. Map backend response to the GroupAnalytics interface
   // Destructure for cleaner access
   const { metrics, member_report, group_id, history } = analyticsData;
+
+  // Precompute frequently used arrays
+  // Member analytics
+  const memberNames = member_report?.map((m) => m.name) ?? [];
+  const memberLoads = member_report?.map((m) => m.active_tasks) ?? [];
+
+  // Historical analytics
+  const velocityData = history?.completed_counts ?? [];
+  const velocityTrend = history?.velocity_trend ?? [];
+  const forecastDates = history?.dates ?? [];
+  const predictionDates = history?.prediction_dates ?? [];
+  const backlogPrediction = history?.backlog_prediction ?? [];
+  const incomingPrediction = history?.incoming_prediction ?? [];
+  const totalCounts = history?.total_counts ?? [];
+
+  const pulse = metrics?.pulse ?? 0;
+  const bufferDays = metrics?.buffer_days ?? 0;
+  const forecastDate = metrics?.forecast_end_date ?? "N/A";
+  const riskLevel = metrics?.ai_risk_level ?? "Unknown";
+  const teamBalanceScore = metrics?.team_balance_score ?? 0;
+
+  //Fallback
+  const safeVelocity = velocityData.length ? velocityData : [0];
+  const safeTotalCounts = totalCounts.length ? totalCounts : [0];
+  const safeBacklogPrediction = backlogPrediction.length ? backlogPrediction : [0];
+  const safeIncomingPrediction = incomingPrediction.length ? incomingPrediction : [0];
 
   // 2. ApexCharts Configurations
   // Activity Pulse (Radial Gauge)
@@ -40,15 +70,15 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Completion Forecast (Burn-up Chart)
-  const forecastOptions: ApexOptions = {
+  const forecastOptions: ApexOptions = useMemo(() => ({
     chart: { type: 'area', toolbar: { show: false } },
     colors: ['#6366f1', '#cbd5e1'],
     stroke: { curve: 'smooth', width: 3 },
-    xaxis: { categories: history?.dates || [] }, // Real dates from DB
+    xaxis: { categories: forecastDates },
     annotations: {
       xaxis: [
         {
-          x: metrics.forecast_end_date,
+          x: metrics?.forecast_end_date,
           borderColor: '#ef4444',
           label: {
             text: 'AI Goal',
@@ -57,13 +87,12 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
         },
       ],
     },
-  };
+  }), [forecastDates, metrics?.forecast_end_date]);
 
   //Contribution Balance (Donut Chart)
-  const balanceOptions: ApexOptions = {
+  const balanceOptions: ApexOptions = useMemo(() => ({
     chart: { type: 'donut' },
-    // Real-time labels from the database
-    labels: analyticsData.member_report?.map((m) => m.name) || [],
+    labels: memberNames,
     colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'],
     plotOptions: {
       pie: {
@@ -74,9 +103,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             total: {
               show: true,
               label: 'Balance Score',
-              // Pulls the AI-calculated balance score directly from the metrics object
-              formatter: () =>
-                `${analyticsData.metrics?.team_balance_score || 0}%`,
+              formatter: () => `${teamBalanceScore}%`,
             },
           },
         },
@@ -85,17 +112,17 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     dataLabels: { enabled: false },
     legend: {
       position: 'bottom',
-      labels: { colors: '#64748b' }, // Slate-500 for modern UI
+      labels: { colors: '#64748b' },
     },
-  };
+  }), [memberNames, teamBalanceScore]);
 
   //Member Bandwidth (Stacked Horizontal Bar)
-  const bandwidthOptions: ApexOptions = {
+  const bandwidthOptions: ApexOptions = useMemo(() => ({
     chart: { type: 'bar', stacked: true, toolbar: { show: false } },
     plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
-    xaxis: { categories: member_report.map((m) => m.name) },
+    xaxis: { categories: memberNames },
     colors: ['#6366f1', '#f1f5f9'],
-  };
+  }), [memberNames]);
 
   //Milestone Buffer (Bullet Graph)
   const bufferOptions: ApexOptions = {
@@ -108,7 +135,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
       },
     },
     // REAL-TIME COLOR: Switches color based on the actual value in the database
-    colors: [analyticsData.metrics?.buffer_days < 3 ? '#ef4444' : '#10b981'],
+    colors: [bufferDays < 3 ? '#ef4444' : '#10b981'],
     xaxis: {
       categories: ['Milestone Buffer'],
       max: 30, // Can also make this dynamic: analyticsData.metrics.total_days_in_sprint
@@ -161,20 +188,19 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Task Velocity (Bar + Trend Line)
-  const velocityOptions: ApexOptions = {
+  const velocityOptions: ApexOptions = useMemo(() => ({
     chart: {
       type: 'line',
       toolbar: { show: false },
-      stacked: false, // Ensures columns and lines don't stack
+      stacked: false,
     },
     stroke: {
-      width: [0, 4], // 0 for the columns (bars), 4 for the trend line
+      width: [0, 4],
       curve: 'smooth',
     },
-    colors: ['#e2e8f0', '#6366f1'], // Light grey bars, Indigo trend line
+    colors: ['#e2e8f0', '#6366f1'],
     xaxis: {
-      // Pulls real dates (e.g., ['Mon', 'Tue', 'Wed'...]) from the database history
-      categories: analyticsData.history?.dates || [],
+      categories: forecastDates,
       labels: { style: { colors: '#64748b' } },
     },
     yaxis: {
@@ -182,29 +208,27 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
       labels: { style: { colors: '#64748b' } },
     },
     legend: { position: 'top' },
-    // Important for a "Combo" chart to ensure the bars look like bars
     plotOptions: {
       bar: { borderRadius: 4, columnWidth: '50%' },
     },
-  };
+  }), [forecastDates]);
 
   //Workload Prediction (Stacked Area Chart)
-  const predictionOptions: ApexOptions = {
+  const predictionOptions: ApexOptions = useMemo(() => ({
     chart: {
       type: 'area',
-      stacked: true, // This stacks 'Incoming' on top of 'Backlog' to show total volume
+      stacked: true,
       toolbar: { show: false },
     },
     colors: ['#818cf8', '#c084fc'],
     dataLabels: { enabled: false },
-    stroke: { curve: 'monotoneCubic', width: 2 }, // Smooth "wave" look
+    stroke: { curve: 'monotoneCubic', width: 2 },
     fill: {
       type: 'gradient',
       gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
     },
     xaxis: {
-      // Pulls the next 7 days (dates) generated by your AI backend
-      categories: analyticsData.history?.prediction_dates || [],
+      categories: predictionDates,
       labels: { style: { colors: '#64748b' } },
     },
     yaxis: {
@@ -212,7 +236,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     },
     tooltip: { x: { format: 'dd MMM' } },
     grid: { borderColor: '#f1f5f9' },
-  };
+  }), [predictionDates]);
 
   //put other charts options here for other algorithms...
 
@@ -240,19 +264,19 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           title="Completion Forecast"
-          value={analyticsData.metrics.forecast_end_date}
+          value={forecastDate}
           detail="AI Predicted Date"
           type="forecasting"
         />
         <StatCard
           title="Risk Level"
-          value={analyticsData.metrics.ai_risk_level}
+          value={riskLevel}
           detail="Random Forest Analysis"
           type="predictive"
         />
         <StatCard
           title="Milestone Buffer"
-          value={`${analyticsData.metrics.buffer_days} Days`}
+          value={`${bufferDays} Days`}
           detail="Safety Margin"
           type="forecasting"
         />
@@ -269,11 +293,11 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             series={[
               {
                 name: 'Completed Tasks',
-                data: analyticsData.history?.completed_counts || [],
+                data: safeVelocity,
               },
               {
                 name: 'Total Scope',
-                data: analyticsData.history?.total_counts || [],
+                data: safeTotalCounts,
               },
             ]}
             type="area"
@@ -292,10 +316,10 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
                 data: [
                   {
                     x: 'Likelihood',
-                    y: analyticsData.metrics?.risk_likelihood || 0,
+                    y: metrics?.risk_likelihood ?? 0,
                   },
-                  { x: 'Impact', y: analyticsData.metrics?.risk_impact || 0 },
-                  { x: 'Urgency', y: analyticsData.metrics?.risk_urgency || 0 },
+                  { x: 'Impact', y: metrics?.risk_impact ?? 0 },
+                  { x: 'Urgency', y: metrics?.risk_urgency ?? 0 },
                 ],
               },
             ]}
@@ -313,7 +337,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={pulseOptions}
-            series={[analyticsData.metrics.pulse]}
+            series={[pulse]}
             type="radialBar"
             height={250}
           />
@@ -324,7 +348,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={balanceOptions}
-            series={analyticsData.member_report.map((m) => m.active_tasks)}
+            series={memberLoads.length ? memberLoads : [0]}
             type="donut"
             height={250}
           />
@@ -339,12 +363,12 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
               {
                 name: 'Actual Output',
                 type: 'column',
-                data: analyticsData.history?.completed_counts || [],
+                data: safeVelocity,
               },
               {
                 name: 'AI Velocity Trend',
                 type: 'line',
-                data: analyticsData.history?.velocity_trend || [],
+                data: velocityTrend,
               },
             ]}
             type="line"
@@ -364,15 +388,11 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             series={[
               {
                 name: 'Active Tasks',
-                data:
-                  analyticsData.member_report?.map((m) => m.active_tasks) || [],
+                data: memberLoads.length ? memberLoads : [0],
               },
               {
                 name: 'Capacity',
-                data:
-                  analyticsData.member_report?.map((m) =>
-                    Math.max(0, 10 - m.active_tasks)
-                  ) || [],
+                data: memberLoads.length ? memberLoads.map((load) => Math.max(0, 10 - load)) : [0],
               },
             ]}
             type="bar"
@@ -388,7 +408,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             series={[
               {
                 name: 'Days Remaining',
-                data: [analyticsData.metrics.buffer_days],
+                data: [bufferDays],
               },
             ]}
             type="bar"
@@ -404,11 +424,11 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             series={[
               {
                 name: 'Current Backlog',
-                data: analyticsData.history?.backlog_prediction || [],
+                data: safeBacklogPrediction,
               },
               {
                 name: 'New Predicted Tasks',
-                data: analyticsData.history?.incoming_prediction || [],
+                data: safeIncomingPrediction,
               },
             ]}
             type="area"
