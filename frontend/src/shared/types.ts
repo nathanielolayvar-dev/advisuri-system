@@ -378,8 +378,7 @@ export interface AnalyticsResponse {
     active_tasks: number;
     risk_score: string;
   }>;
-  // This is the section causing your error!
-  // We must define these arrays for TypeScript to allow them.
+
   history: {
     dates: string[];
     completed_counts: number[];
