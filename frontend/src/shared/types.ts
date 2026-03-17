@@ -145,6 +145,20 @@ export interface SupabaseAttachment {
 }
 
 // ============================================================================
+// Announcement Types (maps to `group_announcements` table)
+// ============================================================================
+
+export interface SupabaseAnnouncement {
+  id: string; // UUID
+  group_id: string; // UUID -> groups.group_id
+  author_id: string; // UUID -> users.user_id
+  title: string;
+  content: string;
+  created_at: string;
+  users?: { full_name: string } | null;
+}
+
+// ============================================================================
 // Task Note Types (maps to `tasknotes` table)
 // ============================================================================
 
@@ -220,7 +234,7 @@ export interface Task {
 }
 
 export interface Announcement {
-  id: number;
+  id: number | string;
   title: string;
   group: string;
   author: string;
@@ -364,8 +378,7 @@ export interface AnalyticsResponse {
     active_tasks: number;
     risk_score: string;
   }>;
-  // This is the section causing your error!
-  // We must define these arrays for TypeScript to allow them.
+
   history: {
     dates: string[];
     completed_counts: number[];

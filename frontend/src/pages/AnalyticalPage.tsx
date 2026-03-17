@@ -4,7 +4,13 @@ import { analyticsService } from '../services/analyticsService';
 import { getGroups, GroupWithMembers } from '../services/groupService';
 import { AnalyticsView as AnalyticsDashboard } from '../components/Analytics/Analytics';
 import { AnalyticsResponse } from '../shared/types';
-import { Loader2, AlertCircle, RefreshCcw, HelpCircle, ChevronDown } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
+  HelpCircle,
+  ChevronDown,
+} from 'lucide-react';
 import { Sidebar } from '../components/Sidebar/Sidebar';
 import { useSidebar } from '../components/Sidebar/SidebarContext';
 
@@ -20,17 +26,14 @@ const AnalyticsPage = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [groupsLoading, setGroupsLoading] = useState(true);
 
-  // Sync margin with Sidebar state
   const marginClass = isPinned || isHovered ? 'ml-64' : 'ml-20';
 
-  // Fetch user's groups
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const result = await getGroups();
         if (result.data && result.data.length > 0) {
           setGroups(result.data);
-          // Set default selected group
           const defaultGroup = groupId || result.data[0].id;
           setSelectedGroupId(defaultGroup);
         }
@@ -44,21 +47,23 @@ const AnalyticsPage = () => {
   }, [groupId]);
 
   const loadData = async () => {
-    // Use selected groupId or default to first group
-    const effectiveGroupId = selectedGroupId || (groups.length > 0 ? groups[0].id : '1');
+    const effectiveGroupId =
+      selectedGroupId || (groups.length > 0 ? groups[0].id : null);
+
+    if (!effectiveGroupId) return;
+
     try {
       setLoading(true);
       setError(null);
-
-      // Call our typed service
       const result = await analyticsService.getGroupAnalytics(effectiveGroupId);
       setData(result);
     } catch (err) {
+      // This catches the 404 or network errors
       setError(
-        'The intelligence engine is currently unreachable. Please try again.'
+        'The intelligence engine is currently unreachable or the group data was not found.'
       );
+      setData(null);
     } finally {
-      // Small delay to ensure the transition feels smooth
       setTimeout(() => setLoading(false), 500);
     }
   };
@@ -70,7 +75,7 @@ const AnalyticsPage = () => {
   }, [selectedGroupId]);
 
   // --- 1. LOADING STATE ---
-  if (loading) {
+  if (loading || groupsLoading) {
     return (
       <div className="flex min-h-screen bg-[#F8F9FB]">
         <Sidebar />
@@ -83,8 +88,7 @@ const AnalyticsPage = () => {
               Synchronizing AI Insights
             </h3>
             <p className="text-slate-500 text-sm max-w-xs mx-auto">
-              Our models are calculating task velocity, member bandwidth, and
-              burnout risks...
+              Our models are calculating task velocity and burnout risks...
             </p>
           </div>
         </div>
@@ -93,6 +97,7 @@ const AnalyticsPage = () => {
   }
 
   // --- 2. ERROR STATE ---
+  // Ensure we show error if data is missing OR error state is set
   if (error || !data) {
     return (
       <div className="flex min-h-screen bg-[#F8F9FB]">
@@ -108,14 +113,13 @@ const AnalyticsPage = () => {
               Analysis Halted
             </h2>
             <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-              {error}
+              {error || 'Data unavailable'}
             </p>
             <button
               onClick={loadData}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-3.5 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
             >
-              <RefreshCcw size={18} />
-              Re-run AI Analysis
+              <RefreshCcw size={18} /> Re-run AI Analysis
             </button>
           </div>
         </div>
@@ -124,14 +128,15 @@ const AnalyticsPage = () => {
   }
 
   // --- 3. SUCCESS STATE ---
+  // Safe extraction of risk level using Optional Chaining
+  const riskLevel = data?.metrics?.ai_risk_level || 'Unknown';
+
   return (
     <div className="flex min-h-screen bg-[#F8F9FB]">
       <Sidebar />
-
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ease-in-out ${marginClass}`}
       >
-        {/* Modern Sticky Header */}
         <header className="h-20 bg-white/60 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-10 sticky top-0 z-30">
           <div className="flex items-center gap-6">
             <div>
@@ -143,7 +148,6 @@ const AnalyticsPage = () => {
               </p>
             </div>
 
-            {/* Group Selector Dropdown */}
             {groups.length > 0 && (
               <div className="relative">
                 <select
@@ -164,22 +168,24 @@ const AnalyticsPage = () => {
 
           <div className="flex items-center gap-4">
             <div
-              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter ${data.metrics.ai_risk_level === 'High' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}
+              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter ${
+                riskLevel === 'High'
+                  ? 'bg-red-100 text-red-600'
+                  : 'bg-emerald-100 text-emerald-600'
+              }`}
             >
-              Risk: {data.metrics.ai_risk_level}
+              Risk: {riskLevel}
             </div>
           </div>
         </header>
 
         <main className="p-10 flex-1 overflow-y-auto">
-          {/* We pass the full 'data' object to the Dashboard so it doesn't have to fetch again */}
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <AnalyticsDashboard analyticsData={data} />
           </div>
         </main>
       </div>
 
-      {/* Floating Action Help */}
       <button className="fixed bottom-10 right-10 w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl hover:bg-indigo-600 hover:-translate-y-2 active:scale-90 transition-all z-50 group">
         <HelpCircle
           size={32}

@@ -112,7 +112,7 @@ class DocumentDelete(generics.DestroyAPIView):
     def get_queryset(self):
         return Document.objects.filter(uploaded_by=self.request.user)
 
-# Handles the logic for all 10 features by calling the methods
+# Handles the logic for all 8 features by calling the methods
 class GroupAnalyticsDashboard(APIView):
     def get(self, request, group_id):
         # 1. Gather raw data from Django ORM

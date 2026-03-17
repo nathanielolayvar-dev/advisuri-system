@@ -1,23 +1,15 @@
 // components/Dashboard/AnnouncementsSidebar.tsx
 import { Bell } from 'lucide-react';
-
-interface Announcement {
-  id: number;
-  title: string;
-  group: string;
-  author: string;
-  content: string;
-  time: string;
-  avatar: string;
-  isNew: boolean;
-}
+import { Announcement } from '../../../shared/types';
 
 interface AnnouncementsSidebarProps {
   announcements: Announcement[];
+  onDismiss?: (id: number | string) => void;
 }
 
 export const AnnouncementsSidebar = ({
   announcements,
+  onDismiss,
 }: AnnouncementsSidebarProps) => {
   // Helper to assign colors based on the author's initials
   const getAvatarColor = (index: number) => {
@@ -39,7 +31,12 @@ export const AnnouncementsSidebar = ({
       </div>
 
       <div className="divide-y divide-[#E2E8F0] max-h-[600px] overflow-y-auto custom-scrollbar">
-        {announcements.map((announcement, index) => (
+        {announcements.length === 0 ? (
+          <div className="p-5 text-sm text-slate-500 text-center">
+            No unread announcements.
+          </div>
+        ) : (
+          announcements.map((announcement, index) => (
           <div
             key={announcement.id}
             className="p-4 hover:bg-[#F8FAFC] transition-colors"
@@ -73,11 +70,22 @@ export const AnnouncementsSidebar = ({
             <p className="text-sm text-[#475569] mb-2 leading-relaxed line-clamp-3">
               {announcement.content}
             </p>
-            <p className="text-[11px] text-[#94A3B8] font-medium">
-              {announcement.time}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-[#94A3B8] font-medium">
+                {announcement.time}
+              </p>
+              {announcement.isNew && onDismiss && (
+                <button
+                  onClick={() => onDismiss(announcement.id)}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                >
+                  Mark as read
+                </button>
+              )}
+            </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
