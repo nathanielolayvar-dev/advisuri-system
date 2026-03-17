@@ -25,7 +25,7 @@ export default function DashboardPage() {
           </div>
 
           <footer className="mt-20 py-10 border-t border-[#E2E8F0] text-center text-sm text-[#94A3B8] font-medium">
-            © 2024 Learning Management System. All rights reserved.
+            © 2025 - 2026. Advisuri: Online Progress Tracking with Dynamic Analytics for Research Projects.  All rights reserved.
           </footer>
         </main>
       </div>
