@@ -216,7 +216,8 @@ export interface User {
 }
 
 export interface Group {
-  id: string;
+  id?: string
+  group_id: string;
   name: string;
   course: string;
   members?: any[];

@@ -1,3 +1,5 @@
+//presentation component (handles UI)
+
 import React, { useMemo } from 'react';
 import { AnalyticsResponse } from '../../shared/types';
 import { StatCard } from './StatCard';

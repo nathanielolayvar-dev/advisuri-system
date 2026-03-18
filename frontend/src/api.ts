@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 
 // Create Axios instance - don't use baseURL since we're using Vite proxy
 const api = axios.create({
-  baseURL: '', // Will use relative URLs which go through Vite proxy
+  baseURL: "http://127.0.0.1:8000/api", // Will use relative URLs which go through Vite proxy
 });
 
 // Update Interceptor to use Supabase Session
