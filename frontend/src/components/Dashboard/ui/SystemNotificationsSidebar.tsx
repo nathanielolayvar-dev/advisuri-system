@@ -5,7 +5,6 @@ interface SystemNotificationsSidebarProps {
   notifications: SystemNotification[];
   onDismiss?: (id: string) => void;
   onMarkAllRead?: () => void;
-  isSticky?: boolean;
   unreadCount?: number;
   showReadToggle?: boolean;
   showRead?: boolean;
@@ -32,7 +31,6 @@ export const SystemNotificationsSidebar = ({
   notifications,
   onDismiss,
   onMarkAllRead,
-  isSticky = true,
   unreadCount,
   showReadToggle,
   showRead,
@@ -42,7 +40,7 @@ export const SystemNotificationsSidebar = ({
   onClearReadHistory,
 }: SystemNotificationsSidebarProps) => {
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-[#E2E8F0] ${isSticky ? 'lg:sticky lg:top-20' : ''}`}>
+    <div className="bg-white rounded-lg shadow-sm border border-[#E2E8F0]">
       <div className="p-5 border-b border-[#E2E8F0]">
         <div className="flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, ArrowDown, Link as LinkIcon, File, X, FileText, Image, FileSpreadsheet, Code } from 'lucide-react';
+import { Send, Paperclip, ArrowDown, Link as LinkIcon, File, X, FileText, Image, FileSpreadsheet, Code, MessageSquare as MessageSquareIcon } from 'lucide-react';
 import { Message, Document } from '../../../shared/types';
 import '../../../styles/ChatView.css';
 import { supabase } from '../../../supabaseClient';
@@ -329,6 +329,19 @@ export const ChatView = ({ groupId }: ChatViewProps) => {
 
   return (
     <div className="chat-container">
+      {/* Header */}
+      <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+            <MessageSquareIcon className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-800 text-lg">Chat & Docs</h4>
+            <p className="text-xs text-slate-500">Group conversations and files</p>
+          </div>
+        </div>
+      </div>
+
       {/* Documents Panel Toggle */}
       <div className="documents-toggle">
         <button

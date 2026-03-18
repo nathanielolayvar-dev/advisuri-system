@@ -154,16 +154,16 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* User Data Card */}
-        <div className="flex items-center gap-3 p-1.5 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
+        <div className={`flex items-center gap-3 p-1.5 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden transition-all duration-300 ${isExpanded ? 'h-auto px-3' : 'h-12 justify-center w-12 mx-auto'}`}>
           <div className="w-10 h-10 bg-gradient-to-tr from-[#2563EB] to-[#60A5FA] rounded-full flex items-center justify-center text-white font-bold border-2 border-white shadow-sm flex-shrink-0">
             {loading ? '...' : getInitials(userData?.name)}
           </div>
           
-          <div className={`transition-all duration-300 whitespace-nowrap ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+          <div className={`transition-all duration-300 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 translate-x-0 w-auto' : 'opacity-0 -translate-x-4 w-0'}`}>
             <p className="text-sm font-bold text-[#1E293B] truncate max-w-[120px]">
               {loading ? 'Loading...' : (userData?.name || 'User')}
             </p>
-            <p className="text-[10px] text-[#64748B] font-medium">
+            <p className="text-[10px] text-[#64748B] font-medium truncate">
               {userData?.email || 'No email'}
             </p>
           </div>

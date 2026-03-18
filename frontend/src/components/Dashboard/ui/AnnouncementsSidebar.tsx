@@ -18,7 +18,7 @@ export const AnnouncementsSidebar = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#E2E8F0] sticky top-20">
+    <div className="bg-white rounded-lg shadow-sm border border-[#E2E8F0]">
       <div className="p-5 border-b border-[#E2E8F0]">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] rounded-lg flex items-center justify-center">

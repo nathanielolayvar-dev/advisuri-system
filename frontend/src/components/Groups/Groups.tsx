@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar, Bell } from 'lucide-react';
+import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar as CalendarIcon, CalendarDays, Bell, Megaphone } from 'lucide-react';
 import { GroupTabs } from './GroupTabs';
 import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
@@ -52,6 +52,7 @@ export const Groups = () => {
   const [showCall, setShowCall] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [searchParams] = useSearchParams();
+  const [animationKey, setAnimationKey] = useState(0);
   
   const { userData } = useSidebar();
   const isStaff = userData?.isStaff === true;
@@ -77,6 +78,13 @@ export const Groups = () => {
   useEffect(() => {
     setShowActions(false);
   }, [selectedGroupId]);
+
+  // Trigger animation when group or view changes
+  useEffect(() => {
+    if (selectedGroupId) {
+      setAnimationKey(prev => prev + 1);
+    }
+  }, [selectedGroupId, activeView]);
 
   const fetchGroups = async () => {
     if (!userData?.id) return;
@@ -321,7 +329,7 @@ export const Groups = () => {
                   { id: 'chat', icon: MessageSquare, label: 'Chat & Docs' },
                   { id: 'tasks', icon: FileText, label: 'Tasks' },
                   { id: 'timeline', icon: Clock, label: 'Timeline' },
-                  { id: 'schedule', icon: Calendar, label: 'Schedule' },
+                  { id: 'schedule', icon: CalendarIcon, label: 'Schedule' },
                 ]).map(({ id, icon: Icon, label }) => (
                   <button
                     key={id}
@@ -339,11 +347,13 @@ export const Groups = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
+            <div key={animationKey} className="flex-1 overflow-auto animate-fade-in">
               {activeView === 'schedule' ? (
-                <ScheduleView groupId={selectedGroupId} isStaff={isStaff} />
+                <div className="animate-fade-in">
+                  <ScheduleView groupId={selectedGroupId} isStaff={isStaff} />
+                </div>
               ) : (
-                <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="h-full animate-fade-in">
                   {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
                   {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
                   {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} />}
