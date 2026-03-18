@@ -35,9 +35,11 @@ export function useIdleTimer(): UseIdleTimerReturn {
     // Clear existing timers
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
     }
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
     }
 
     setShowWarning(false);
