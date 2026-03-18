@@ -18,7 +18,9 @@ export const analyticsService = {
       const response = await api.get<AnalyticsResponse>(
         `/analytics/${groupId}/`
       );
-
+      console.log("GROUP ID:", groupId);
+      console.log("FULL RESPONSE:", response);
+      console.log("DATA:", response.data);
       // 2. Return the data to the AnalyticsPage
       return response.data;
     } catch (error: any) {

@@ -12,6 +12,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from urllib3 import request
 from urllib3 import request
 
+from api.analytics.algorithms.member_bandwidth import calculate_detailed_bandwidth
+
 # Models, Analytic Engine & Serializers
 from .models import TaskNote, Task, Message, Group, Document
 from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer, DocumentSerializer
@@ -307,6 +309,7 @@ class GroupAnalyticsDashboard(APIView):
         """, (group["group_id"],))
 
         for member in members:
+            user_id = member["user_id"]
             member_tasks = tasks_df[
                 (tasks_df['assigned_to'] == member["user_id"]) &
                 (tasks_df['progress_percentage'] < 100)
@@ -314,10 +317,7 @@ class GroupAnalyticsDashboard(APIView):
 
             load_count = len(member_tasks)
 
-            risk_score = engine.predict_member_bandwidth(
-                 member["user_id"],
-                load_count
-            )
+            risk_score = calculate_detailed_bandwidth(tasks_df, user_id)
 
             report.append({
                 "name": member.get("full_name", "Unknown"),

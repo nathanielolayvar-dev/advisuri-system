@@ -1,3 +1,5 @@
+//parent component (handles logic)
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { analyticsService } from '../services/analyticsService';
@@ -17,7 +19,7 @@ import { useSidebar } from '../components/Sidebar/SidebarContext';
 const AnalyticsPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const { isPinned, isHovered } = useSidebar();
-
+ 
   // State Management
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,25 +28,43 @@ const AnalyticsPage = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [groupsLoading, setGroupsLoading] = useState(true);
 
+  console.log("loading:", loading);
+  console.log("groupsLoading:", groupsLoading);
+  console.log("selectedGroupId:", selectedGroupId);
+  console.log("data:", data);
+
   const marginClass = isPinned || isHovered ? 'ml-64' : 'ml-20';
 
   useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        const result = await getGroups();
-        if (result.data && result.data.length > 0) {
-          setGroups(result.data);
-          const defaultGroup = groupId || result.data[0].id;
-          setSelectedGroupId(defaultGroup);
-        }
-      } catch (err) {
-        console.error('Error fetching groups:', err);
-      } finally {
-        setGroupsLoading(false);
+    if (selectedGroupId) {
+       loadData();
+    }
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+  const fetchGroups = async () => {
+    try {
+      const result = await getGroups();
+
+      if (result.data && result.data.length > 0) {
+        setGroups(result.data);
+
+        const defaultGroup = groupId || result.data[0].id;
+
+        console.log("Groups fetched:", result.data);
+        console.log("Default group:", defaultGroup);
+
+        setSelectedGroupId(defaultGroup);
       }
-    };
-    fetchGroups();
-  }, [groupId]);
+    } catch (err) {
+      console.error("Error fetching groups:", err);
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  fetchGroups();
+}, [groupId]);
 
   const loadData = async () => {
     const effectiveGroupId =
@@ -56,6 +76,7 @@ const AnalyticsPage = () => {
       setLoading(true);
       setError(null);
       const result = await analyticsService.getGroupAnalytics(effectiveGroupId);
+      console.log("🔥 FINAL DATA:", result); 
       setData(result);
     } catch (err) {
       // This catches the 404 or network errors
@@ -67,12 +88,6 @@ const AnalyticsPage = () => {
       setTimeout(() => setLoading(false), 500);
     }
   };
-
-  useEffect(() => {
-    if (selectedGroupId) {
-      loadData();
-    }
-  }, [selectedGroupId]);
 
   // --- 1. LOADING STATE ---
   if (loading || groupsLoading) {
