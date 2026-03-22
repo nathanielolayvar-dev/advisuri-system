@@ -1,7 +1,7 @@
 // This is the layout/presentation layer
 
 import { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, Loader2, Calendar, Folder, Search } from 'lucide-react';
+import { AlertCircle, Loader2, Calendar, Folder, Search, User } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -37,6 +37,8 @@ interface DashboardTask {
   progress_percentage?: number;
   assigned_to?: string;
   group_name?: string;
+  assigned_user_name?: string;
+  subtasks?: DashboardTask[];
 }
 
 export default function DashboardView() {
@@ -97,6 +99,7 @@ export default function DashboardView() {
         const userGroupIds = groupMembers.map(gm => gm.group_id);
 
         // Fetch tasks from those groups with group info
+        // Include assigned user info and filter out completed tasks
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select(`
@@ -109,11 +112,67 @@ export default function DashboardView() {
 
         if (tasksError) throw tasksError;
 
-        // Format tasks with group name
-        const formattedTasks: DashboardTask[] = (tasksData || []).map((task: any) => ({
-          ...task,
-          group_name: task.groups?.group_name || 'Unknown Group'
-        }));
+        // Also fetch all subtasks for these groups to calculate progress
+        const { data: subtasksData, error: subtasksError } = await supabase
+          .from('tasks')
+          .select('*')
+          .in('group_id', userGroupIds)
+          .not('parent_task_id', 'is', null);
+
+        if (subtasksError) console.error('Error fetching subtasks:', subtasksError);
+
+        // Fetch users separately to get assigned user names
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('user_id, full_name');
+
+        if (usersError) console.error('Error fetching users:', usersError);
+
+        // Create a map of user_id to full_name
+        const userMap = new Map<string, string>();
+        (usersData || []).forEach((user: any) => {
+          userMap.set(user.user_id, user.full_name);
+        });
+
+        // Create a map of parent task ID to subtasks
+        const subtasksMap = new Map<string, DashboardTask[]>();
+        (subtasksData || []).forEach((subtask: any) => {
+          const parentId = subtask.parent_task_id;
+          if (parentId) {
+            const existing = subtasksMap.get(parentId) || [];
+            // Get assigned user name from userMap
+            const assignedUserName = subtask.assigned_to ? userMap.get(subtask.assigned_to) : undefined;
+            existing.push({
+              ...subtask,
+              assigned_user_name: assignedUserName
+            });
+            subtasksMap.set(parentId, existing);
+          }
+        });
+
+        // Format tasks with group name and assigned user
+        // Calculate progress based on subtasks
+        const formattedTasks: DashboardTask[] = (tasksData || []).map((task: any) => {
+          const taskSubtasks = subtasksMap.get(task.id) || [];
+          
+          // Calculate progress based on subtasks
+          let calculatedProgress = task.progress_percentage || 0;
+          if (taskSubtasks.length > 0) {
+            const completedSubtasks = taskSubtasks.filter((st: DashboardTask) => st.status === 'completed').length;
+            calculatedProgress = Math.round((completedSubtasks / taskSubtasks.length) * 100);
+          }
+          
+          // Get assigned user name from userMap
+          const assignedUserName = task.assigned_to ? userMap.get(task.assigned_to) : undefined;
+          
+          return {
+            ...task,
+            group_name: task.groups?.group_name || 'Unknown Group',
+            assigned_user_name: assignedUserName,
+            subtasks: taskSubtasks,
+            progress_percentage: calculatedProgress
+          };
+        });
 
         setTasks(formattedTasks);
 
@@ -321,12 +380,16 @@ export default function DashboardView() {
   const sortedTasks = useMemo(() => {
     let filtered = [...tasks];
     
+    // Filter out tasks with 100% progress (completed)
+    filtered = filtered.filter(task => task.progress_percentage !== 100);
+    
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(task => 
         task.title.toLowerCase().includes(query) ||
-        (task.group_name && task.group_name.toLowerCase().includes(query))
+        (task.group_name && task.group_name.toLowerCase().includes(query)) ||
+        (task.assigned_user_name && task.assigned_user_name.toLowerCase().includes(query))
       );
     }
     
@@ -483,11 +546,26 @@ export default function DashboardView() {
                           )}
                         </div>
                         
-                        {/* Group name */}
+                        {/* Group name and assigned user */}
                         <div className="flex items-center gap-1 text-sm text-slate-500">
                           <Folder size={14} />
                           <span>{task.group_name}</span>
                         </div>
+                        {/* Assigned user */}
+                        {task.assigned_user_name && (
+                          <div className="flex items-center gap-1 text-sm text-blue-600 mt-1">
+                            <User size={14} />
+                            <span>{task.assigned_user_name}</span>
+                          </div>
+                        )}
+                        {/* Subtasks indicator */}
+                        {task.subtasks && task.subtasks.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                            <span className="bg-slate-100 px-2 py-0.5 rounded">
+                              {task.subtasks.filter((st: DashboardTask) => st.status === 'completed').length}/{task.subtasks.length} subtasks
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Due date */}
@@ -512,9 +590,24 @@ export default function DashboardView() {
                             }
                           </div>
                         )}
+                        {/* Progress display */}
                         {task.due_date && (
-                          <div className="text-xs text-slate-400">
-                            {task.progress_percentage || 0}% complete
+                          <div className="mt-1">
+                            <div className="text-xs text-slate-400">
+                              {task.subtasks && task.subtasks.length > 0 
+                                ? `${task.subtasks.filter((st: DashboardTask) => st.status === 'completed').length}/${task.subtasks.length} subtasks (${task.progress_percentage || 0}%)`
+                                : `${task.progress_percentage || 0}% complete`
+                              }
+                            </div>
+                            {/* Progress bar */}
+                            {task.subtasks && task.subtasks.length > 0 && (
+                              <div className="w-20 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-600 rounded-full"
+                                  style={{ width: `${task.progress_percentage || 0}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

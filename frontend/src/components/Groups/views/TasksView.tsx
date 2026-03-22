@@ -93,13 +93,50 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
     setLoading(true);
     // Ensure groupId is converted to string for consistent comparison
     const groupIdStr = String(groupId);
+    
+    // Fetch tasks
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('group_id', groupIdStr)
       .order('created_at', { ascending: false });
+    
     if (!error) {
-      setTasks(data || []);
+      const allTasks = data || [];
+      
+      // Fetch users to get assigned user names
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('user_id, full_name');
+      
+      // Create a map of user_id to full_name
+      const userMap = new Map<string, string>();
+      (usersData || []).forEach((user: any) => {
+        userMap.set(user.user_id, user.full_name);
+      });
+      
+      // Format tasks with assigned user name and calculate progress from subtasks
+      const formattedTasks = allTasks.map((task: any) => {
+        const taskSubtasks = allTasks.filter((t: any) => t.parent_task_id === task.id);
+        
+        // Calculate progress based on subtasks
+        let calculatedProgress = task.progress_percentage || 0;
+        if (taskSubtasks.length > 0) {
+          const completedSubtasks = taskSubtasks.filter((st: any) => st.status === 'completed').length;
+          calculatedProgress = Math.round((completedSubtasks / taskSubtasks.length) * 100);
+        }
+        
+        // Get assigned user name from userMap
+        const assignedUserName = task.assigned_to ? userMap.get(task.assigned_to) || null : null;
+        
+        return {
+          ...task,
+          assigned_user_name: assignedUserName,
+          progress_percentage: calculatedProgress
+        };
+      });
+      
+      setTasks(formattedTasks);
     } else {
       console.error('Error fetching tasks:', error);
     }
@@ -1075,8 +1112,8 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
         )}
 
         <div className="flex flex-col gap-4">
-          {/* First render parent tasks (tasks without parent) */}
-          {tasks.filter(t => !t.parent_task_id).map((task) => {
+          {/* First render parent tasks (tasks without parent) - filter out 100% completed */}
+          {tasks.filter(t => !t.parent_task_id && (t as any).progress_percentage !== 100).map((task) => {
             const taskSubtasks = tasks.filter(st => st.parent_task_id === task.id);
             return (
               <div key={task.id} className="space-y-2">
@@ -1085,11 +1122,18 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                   onClick={() => openTask(task)}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
                         {task.title}
                       </h3>
                       <p className="text-slate-600 text-sm line-clamp-2 mt-1">{task.description}</p>
+                      {/* Assigned user */}
+                      {(task as any).assigned_user_name && (
+                        <div className="flex items-center gap-1 text-sm text-blue-600 mt-2">
+                          <User className="w-4 h-4" />
+                          <span>{(task as any).assigned_user_name}</span>
+                        </div>
+                      )}
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-4
                       ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
@@ -1099,6 +1143,24 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                       {task.status ? task.status.replace('-', ' ') : 'pending'}
                     </span>
                   </div>
+                  
+                  {/* Progress bar for subtasks */}
+                  {taskSubtasks.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-slate-500">Subtask Progress</span>
+                        <span className="font-medium text-slate-700">
+                          {taskSubtasks.filter((st: any) => st.status === 'completed').length}/{taskSubtasks.length} ({task.progress_percentage || 0}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                          style={{ width: `${task.progress_percentage || 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex items-center gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3 mt-1">
                     <div className="flex items-center gap-1.5">
@@ -1136,9 +1198,10 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-blue-800 font-medium text-sm">{subtask.title}</span>
-                          {subtask.assigned_to && (
-                            <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full">
-                              Assigned
+                          {(subtask as any).assigned_user_name && (
+                            <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {(subtask as any).assigned_user_name}
                             </span>
                           )}
                         </div>
