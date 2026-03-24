@@ -9,7 +9,6 @@ import AgoraRTC, {
   useLocalCameraTrack,
   usePublish, 
   useRemoteUsers, 
-  useRTCClient,
   RemoteUser,
   LocalUser 
 } from "agora-rtc-react";
@@ -27,6 +26,8 @@ interface VideoCallProps {
 }
 
 export const VideoCall: React.FC<VideoCallProps> = (props) => {
+  if (!props.isOpen) return null; // Unmount the Agora provider and hooks when not open
+
   return (
     <AgoraRTCProvider client={client}>
       <VideoCallInner {...props} />
@@ -49,7 +50,6 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
   const [audioVolumes, setAudioVolumes] = useState<Record<string, number>>({});
   const [currentUserId, setCurrentUserId] = useState<string | null>(propUserId || null);
   const [sending, setSending] = useState(false);
@@ -155,52 +155,22 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
     }
   };
   
-  // Get the RTC client for manual subscription
-  const agoraClient = useRTCClient(client);
-  
   // --- AGORA HOOKS ---
   // Join the channel automatically when the modal is open
   useJoin({
     appid: import.meta.env.VITE_AGORA_APP_ID,
     channel: groupId || "test-room",
     token: null, 
-  }, isOpen);
+  }, true);
 
-  const { localMicrophoneTrack } = useLocalMicrophoneTrack(!isMuted);
-  const { localCameraTrack } = useLocalCameraTrack(isVideoOn);
+  const { localMicrophoneTrack } = useLocalMicrophoneTrack(true);
+  const { localCameraTrack } = useLocalCameraTrack(true);
   
   // Publish our tracks so others can see/hear us
   usePublish([localMicrophoneTrack, localCameraTrack]);
   
   // Get all other people in the call
   const remoteUsers = useRemoteUsers();
-
-  // Manual audio subscription - ensures audio is properly subscribed and played
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleUserPublished = async (user: any, mediaType: 'audio' | 'video') => {
-      console.log("User published:", user.uid, mediaType);
-      try {
-        await agoraClient.subscribe(user, mediaType);
-        console.log("Subscribed to", mediaType, "for user", user.uid);
-        
-        if (mediaType === 'audio' && user.audioTrack) {
-          console.log("Playing audio for user", user.uid);
-          user.audioTrack.play();
-          setAudioReady(true);
-        }
-      } catch (error) {
-        console.error("Failed to subscribe:", error);
-      }
-    };
-
-    agoraClient.on("user-published", handleUserPublished);
-
-    return () => {
-      agoraClient.off("user-published", handleUserPublished);
-    };
-  }, [isOpen, agoraClient]);
 
   // Audio volume monitoring for visual debug
   useEffect(() => {
@@ -225,17 +195,20 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
 
   // Handle Mute/Video toggle at the hardware level
   useEffect(() => {
-    localMicrophoneTrack?.setEnabled(!isMuted);
+    if (localMicrophoneTrack) {
+      localMicrophoneTrack.setEnabled(!isMuted);
+    }
   }, [isMuted, localMicrophoneTrack]);
 
   useEffect(() => {
-    localCameraTrack?.setEnabled(isVideoOn);
+    if (localCameraTrack) {
+      localCameraTrack.setEnabled(isVideoOn);
+    }
   }, [isVideoOn, localCameraTrack]);
 
-  // Cleanup: Close camera/mic tracks when modal closes or component unmounts
+  // Ensure hardware tracks are explicitly closed when component unmounts
   useEffect(() => {
     return () => {
-      // Explicitly close tracks to turn off hardware
       if (localCameraTrack) {
         localCameraTrack.stop();
         localCameraTrack.close();
@@ -276,8 +249,6 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
     const interval = setInterval(() => setCallDuration(prev => prev + 1), 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 text-white">
@@ -326,10 +297,15 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
 
       {/* Main Grid */}
       <div className="flex-1 flex overflow-hidden p-4 gap-4">
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
+        <div className={`flex-1 grid gap-4 auto-rows-fr ${
+          (remoteUsers.length + 1) === 1 ? 'grid-cols-1 max-w-5xl mx-auto w-full' :
+          (remoteUsers.length + 1) === 2 ? 'grid-cols-1 md:grid-cols-2' :
+          (remoteUsers.length + 1) <= 4 ? 'grid-cols-2' :
+          'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        }`}>
           
       {/* My Video Card */}
-      <div className="relative bg-slate-900 rounded-3xl overflow-hidden border border-white/5 shadow-2xl transition-all duration-500">
+      <div className="relative bg-slate-900 rounded-3xl overflow-hidden border border-white/5 shadow-2xl transition-all duration-500 [&>div]:h-full [&>div>video]:object-cover">
         {isVideoOn ? (
           /* Apply styling to this wrapper div instead of the LocalUser component */
           <div className="w-full h-full">
@@ -357,7 +333,7 @@ const VideoCallInner: React.FC<VideoCallProps> = ({
 
           {/* Remote Participants */}
           {remoteUsers.map((user) => (
-            <div key={user.uid} className="relative w-full h-full bg-slate-900 rounded-2xl overflow-hidden border border-white/10">
+            <div key={user.uid} className="relative w-full h-full bg-slate-900 rounded-3xl overflow-hidden border border-white/10 [&>div]:h-full [&>div>video]:object-cover">
               <RemoteUser user={user} playAudio={true} playVideo={true} />
               {/* Audio Signal Indicator - Visual Debug */}
               <div className="absolute bottom-4 left-4 flex items-center gap-2">
