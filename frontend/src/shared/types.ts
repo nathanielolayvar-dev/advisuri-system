@@ -216,7 +216,7 @@ export interface User {
 }
 
 export interface Group {
-  id?: string
+  id?: string;
   group_id: string;
   name: string;
   course: string;
@@ -355,6 +355,11 @@ export interface GroupAnalytics {
   completion_forecast: string;
   milestone_buffer: number;
   member_bandwidth: MemberBandwidth[];
+}
+
+export interface WeeklyAnalytics {
+  completionRate: number;
+  overdueTasks: number;
 }
 
 /**

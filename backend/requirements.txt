@@ -19,3 +19,11 @@ numpy
 pandas 
 scikit-learn
 joblib 
+
+nodemailer
+puppeteer
+node-cron
+reportlab 
+django-celery-beat 
+celery 
+redis

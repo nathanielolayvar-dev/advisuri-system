@@ -25,21 +25,40 @@ export async function getStudents(): Promise<ServiceResult<SupabaseUser[]>> {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, created_at, profile_picture_url'
+      )
       .eq('role', 'student')
       .order('full_name', { ascending: true });
 
     if (error) {
       console.error('Error fetching students:', error);
-      return { data: null, error: new Error(`Failed to fetch students: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch students: ${error.message}`),
+      };
     }
 
     return { data: data as SupabaseUser[], error: null };
   } catch (err) {
     console.error('Unexpected error in getStudents:', err);
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error occurred') };
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Unknown error occurred'),
+    };
   }
 }
+
+export const getTeachers = async (): Promise<SupabaseUser[]> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('role', 'teacher');
+
+  if (error) throw error;
+
+  return data as SupabaseUser[];
+};
 
 /**
  * Search for users by full_name or email
@@ -54,7 +73,9 @@ export async function searchUsers(
   try {
     let supabaseQuery = supabase
       .from('users')
-      .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, created_at, profile_picture_url'
+      )
       .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
       .order('full_name', { ascending: true })
       .limit(10);
@@ -67,13 +88,19 @@ export async function searchUsers(
 
     if (error) {
       console.error('Error searching users:', error);
-      return { data: null, error: new Error(`Failed to search users: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to search users: ${error.message}`),
+      };
     }
 
     return { data: data as SupabaseUser[], error: null };
   } catch (err) {
     console.error('Unexpected error in searchUsers:', err);
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error occurred') };
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Unknown error occurred'),
+    };
   }
 }
 
@@ -84,18 +111,26 @@ export async function getAllUsers(): Promise<ServiceResult<SupabaseUser[]>> {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, created_at, profile_picture_url'
+      )
       .order('full_name', { ascending: true });
 
     if (error) {
       console.error('Error fetching users:', error);
-      return { data: null, error: new Error(`Failed to fetch users: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch users: ${error.message}`),
+      };
     }
 
     return { data: data as SupabaseUser[], error: null };
   } catch (err) {
     console.error('Unexpected error in getAllUsers:', err);
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error occurred') };
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Unknown error occurred'),
+    };
   }
 }
 
@@ -104,23 +139,33 @@ export async function getAllUsers(): Promise<ServiceResult<SupabaseUser[]>> {
  *
  * @param userId - The UUID of the user (matches auth.uid())
  */
-export async function getUserById(userId: string): Promise<ServiceResult<SupabaseUser>> {
+export async function getUserById(
+  userId: string
+): Promise<ServiceResult<SupabaseUser>> {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, created_at, profile_picture_url'
+      )
       .eq('user_id', userId)
       .single();
 
     if (error) {
       console.error('Error fetching user:', error);
-      return { data: null, error: new Error(`Failed to fetch user: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch user: ${error.message}`),
+      };
     }
 
     return { data: data as SupabaseUser, error: null };
   } catch (err) {
     console.error('Unexpected error in getUserById:', err);
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error occurred') };
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Unknown error occurred'),
+    };
   }
 }
 
@@ -139,17 +184,25 @@ export async function updateUserRole(
       .from('users')
       .update({ role: newRole })
       .eq('user_id', userId)
-      .select('user_id, full_name, email, role, is_active, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, created_at, profile_picture_url'
+      )
       .single();
 
     if (error) {
       console.error('Error updating user role:', error);
-      return { data: null, error: new Error(`Failed to update user role: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to update user role: ${error.message}`),
+      };
     }
 
     return { data: data as SupabaseUser, error: null };
   } catch (err) {
     console.error('Unexpected error in updateUserRole:', err);
-    return { data: null, error: err instanceof Error ? err : new Error('Unknown error occurred') };
+    return {
+      data: null,
+      error: err instanceof Error ? err : new Error('Unknown error occurred'),
+    };
   }
 }
