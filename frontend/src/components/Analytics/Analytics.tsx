@@ -1,6 +1,6 @@
 //presentation component (handles UI)
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { AnalyticsResponse } from '../../shared/types';
 import { StatCard } from './StatCard';
 import Chart from 'react-apexcharts';
@@ -20,10 +20,19 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   if (!analyticsData) {
     return <div className="p-6 text-slate-500">Loading analytics...</div>;
   }
-  
+
   // 1. Map backend response to the GroupAnalytics interface
   // Destructure for cleaner access
   const { metrics, member_report, group_id, history } = analyticsData;
+
+  const forecastChartRef = useRef<any>(null);
+  const riskChartRef = useRef<any>(null);
+  const pulseChartRef = useRef<any>(null);
+  const balanceChartRef = useRef<any>(null);
+  const velocityChartRef = useRef<any>(null);
+  const bandwidthChartRef = useRef<any>(null);
+  const bufferChartRef = useRef<any>(null);
+  const predictionChartRef = useRef<any>(null);
 
   // Precompute frequently used arrays
   // Member analytics
@@ -41,15 +50,19 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
 
   const pulse = metrics?.pulse ?? 0;
   const bufferDays = metrics?.buffer_days ?? 0;
-  const forecastDate = metrics?.forecast_end_date ?? "N/A";
-  const riskLevel = metrics?.ai_risk_level ?? "Unknown";
+  const forecastDate = metrics?.forecast_end_date ?? 'N/A';
+  const riskLevel = metrics?.ai_risk_level ?? 'Unknown';
   const teamBalanceScore = metrics?.team_balance_score ?? 0;
 
   //Fallback
   const safeVelocity = velocityData.length ? velocityData : [0];
   const safeTotalCounts = totalCounts.length ? totalCounts : [0];
-  const safeBacklogPrediction = backlogPrediction.length ? backlogPrediction : [0];
-  const safeIncomingPrediction = incomingPrediction.length ? incomingPrediction : [0];
+  const safeBacklogPrediction = backlogPrediction.length
+    ? backlogPrediction
+    : [0];
+  const safeIncomingPrediction = incomingPrediction.length
+    ? incomingPrediction
+    : [0];
 
   // 2. ApexCharts Configurations
   // Activity Pulse (Radial Gauge)
@@ -72,59 +85,68 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Completion Forecast (Burn-up Chart)
-  const forecastOptions: ApexOptions = useMemo(() => ({
-    chart: { type: 'area', toolbar: { show: false } },
-    colors: ['#6366f1', '#cbd5e1'],
-    stroke: { curve: 'smooth', width: 3 },
-    xaxis: { categories: forecastDates },
-    annotations: {
-      xaxis: [
-        {
-          x: metrics?.forecast_end_date,
-          borderColor: '#ef4444',
-          label: {
-            text: 'AI Goal',
-            style: { color: '#fff', background: '#ef4444' },
+  const forecastOptions: ApexOptions = useMemo(
+    () => ({
+      chart: { type: 'area', toolbar: { show: false } },
+      colors: ['#6366f1', '#cbd5e1'],
+      stroke: { curve: 'smooth', width: 3 },
+      xaxis: { categories: forecastDates },
+      annotations: {
+        xaxis: [
+          {
+            x: metrics?.forecast_end_date,
+            borderColor: '#ef4444',
+            label: {
+              text: 'AI Goal',
+              style: { color: '#fff', background: '#ef4444' },
+            },
           },
-        },
-      ],
-    },
-  }), [forecastDates, metrics?.forecast_end_date]);
+        ],
+      },
+    }),
+    [forecastDates, metrics?.forecast_end_date]
+  );
 
   //Contribution Balance (Donut Chart)
-  const balanceOptions: ApexOptions = useMemo(() => ({
-    chart: { type: 'donut' },
-    labels: memberNames,
-    colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'],
-    plotOptions: {
-      pie: {
-        donut: {
-          size: '75%',
-          labels: {
-            show: true,
-            total: {
+  const balanceOptions: ApexOptions = useMemo(
+    () => ({
+      chart: { type: 'donut' },
+      labels: memberNames,
+      colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'],
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '75%',
+            labels: {
               show: true,
-              label: 'Balance Score',
-              formatter: () => `${teamBalanceScore}%`,
+              total: {
+                show: true,
+                label: 'Balance Score',
+                formatter: () => `${teamBalanceScore}%`,
+              },
             },
           },
         },
       },
-    },
-    dataLabels: { enabled: false },
-    legend: {
-      position: 'bottom',
-      labels: { colors: '#64748b' },
-    },
-  }), [memberNames, teamBalanceScore]);
+      dataLabels: { enabled: false },
+      legend: {
+        position: 'bottom',
+        labels: { colors: '#64748b' },
+      },
+    }),
+    [memberNames, teamBalanceScore]
+  );
 
   //Member Bandwidth (Stacked Horizontal Bar)
-  const bandwidthOptions: ApexOptions = useMemo(() => ({
-    chart: { type: 'bar', stacked: true, toolbar: { show: false } },
-    plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
-    xaxis: { categories: memberNames },
-    colors: ['#6366f1', '#f1f5f9'],
-  }), [memberNames]);
+  const bandwidthOptions: ApexOptions = useMemo(
+    () => ({
+      chart: { type: 'bar', stacked: true, toolbar: { show: false } },
+      plotOptions: { bar: { horizontal: true, borderRadius: 6 } },
+      xaxis: { categories: memberNames },
+      colors: ['#6366f1', '#f1f5f9'],
+    }),
+    [memberNames]
+  );
 
   //Milestone Buffer (Bullet Graph)
   const bufferOptions: ApexOptions = {
@@ -190,55 +212,61 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Task Velocity (Bar + Trend Line)
-  const velocityOptions: ApexOptions = useMemo(() => ({
-    chart: {
-      type: 'line',
-      toolbar: { show: false },
-      stacked: false,
-    },
-    stroke: {
-      width: [0, 4],
-      curve: 'smooth',
-    },
-    colors: ['#e2e8f0', '#6366f1'],
-    xaxis: {
-      categories: forecastDates,
-      labels: { style: { colors: '#64748b' } },
-    },
-    yaxis: {
-      title: { text: 'Tasks Finished' },
-      labels: { style: { colors: '#64748b' } },
-    },
-    legend: { position: 'top' },
-    plotOptions: {
-      bar: { borderRadius: 4, columnWidth: '50%' },
-    },
-  }), [forecastDates]);
+  const velocityOptions: ApexOptions = useMemo(
+    () => ({
+      chart: {
+        type: 'line',
+        toolbar: { show: false },
+        stacked: false,
+      },
+      stroke: {
+        width: [0, 4],
+        curve: 'smooth',
+      },
+      colors: ['#e2e8f0', '#6366f1'],
+      xaxis: {
+        categories: forecastDates,
+        labels: { style: { colors: '#64748b' } },
+      },
+      yaxis: {
+        title: { text: 'Tasks Finished' },
+        labels: { style: { colors: '#64748b' } },
+      },
+      legend: { position: 'top' },
+      plotOptions: {
+        bar: { borderRadius: 4, columnWidth: '50%' },
+      },
+    }),
+    [forecastDates]
+  );
 
   //Workload Prediction (Stacked Area Chart)
-  const predictionOptions: ApexOptions = useMemo(() => ({
-    chart: {
-      type: 'area',
-      stacked: true,
-      toolbar: { show: false },
-    },
-    colors: ['#818cf8', '#c084fc'],
-    dataLabels: { enabled: false },
-    stroke: { curve: 'monotoneCubic', width: 2 },
-    fill: {
-      type: 'gradient',
-      gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
-    },
-    xaxis: {
-      categories: predictionDates,
-      labels: { style: { colors: '#64748b' } },
-    },
-    yaxis: {
-      labels: { style: { colors: '#64748b' } },
-    },
-    tooltip: { x: { format: 'dd MMM' } },
-    grid: { borderColor: '#f1f5f9' },
-  }), [predictionDates]);
+  const predictionOptions: ApexOptions = useMemo(
+    () => ({
+      chart: {
+        type: 'area',
+        stacked: true,
+        toolbar: { show: false },
+      },
+      colors: ['#818cf8', '#c084fc'],
+      dataLabels: { enabled: false },
+      stroke: { curve: 'monotoneCubic', width: 2 },
+      fill: {
+        type: 'gradient',
+        gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
+      },
+      xaxis: {
+        categories: predictionDates,
+        labels: { style: { colors: '#64748b' } },
+      },
+      yaxis: {
+        labels: { style: { colors: '#64748b' } },
+      },
+      tooltip: { x: { format: 'dd MMM' } },
+      grid: { borderColor: '#f1f5f9' },
+    }),
+    [predictionDates]
+  );
 
   //put other charts options here for other algorithms...
 
@@ -291,6 +319,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Completion Forecast (Burn-up)
           </h3>
           <Chart
+            ref={forecastChartRef}
             options={forecastOptions}
             series={[
               {
@@ -311,6 +340,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             AI Risk Matrix
           </h3>
           <Chart
+            ref={riskChartRef}
             options={riskOptions}
             series={[
               {
@@ -338,6 +368,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Activity Pulse
           </h3>
           <Chart
+            ref={pulseChartRef}
             options={pulseOptions}
             series={[pulse]}
             type="radialBar"
@@ -349,6 +380,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Contribution Balance
           </h3>
           <Chart
+            ref={balanceChartRef}
             options={balanceOptions}
             series={memberLoads.length ? memberLoads : [0]}
             type="donut"
@@ -360,6 +392,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Task Velocity
           </h3>
           <Chart
+            ref={velocityChartRef}
             options={velocityOptions}
             series={[
               {
@@ -386,6 +419,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Member Bandwidth
           </h3>
           <Chart
+            ref={bandwidthChartRef}
             options={bandwidthOptions}
             series={[
               {
@@ -394,7 +428,9 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
               },
               {
                 name: 'Capacity',
-                data: memberLoads.length ? memberLoads.map((load) => Math.max(0, 10 - load)) : [0],
+                data: memberLoads.length
+                  ? memberLoads.map((load) => Math.max(0, 10 - load))
+                  : [0],
               },
             ]}
             type="bar"
@@ -406,6 +442,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Milestone Buffer
           </h3>
           <Chart
+            ref={bufferChartRef}
             options={bufferOptions}
             series={[
               {
@@ -422,6 +459,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Upcoming Workload (7-Day Prediction)
           </h3>
           <Chart
+            ref={predictionChartRef}
             options={predictionOptions}
             series={[
               {

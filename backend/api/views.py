@@ -24,7 +24,6 @@ import psycopg2
 import psycopg2.extras
 import os
 
-
 User = get_user_model()
 
 @api_view(['GET'])
