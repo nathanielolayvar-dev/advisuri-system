@@ -21,7 +21,7 @@ from .analytics.analytics_engine import AnalyticsEngine
 import pandas as pd
 
 import psycopg2
-import psycopg2.extras
+import psycopg2.extras  
 import os
 
 User = get_user_model()

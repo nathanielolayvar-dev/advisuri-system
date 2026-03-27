@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     # Additionals
     'rest_framework',
     'corsheaders',
-    'api',
+    'api.apps.ApiConfig',
 
     'django_celery_beat'
 ]

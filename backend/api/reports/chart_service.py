@@ -59,9 +59,16 @@ def generate_balance_chart(): #Contribution Balance
     summary = get_weekly_summary()
 
     labels = ["Completed", "Overdue"]
-    values = [summary["completed"], summary["overdue"]]
+    values = [
+        summary.get("completed", 0),
+        summary.get("overdue", 0)
+    ]
 
     buffer = BytesIO()
+    # handle empty data
+    if sum(values) == 0:
+        values = [1]  # dummy value
+        labels = ["No Data"]
 
     plt.figure()
     plt.pie(values, labels=labels, autopct='%1.1f%%')

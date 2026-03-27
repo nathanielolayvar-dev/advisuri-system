@@ -1,11 +1,22 @@
 from datetime import datetime, timedelta
 from collections import defaultdict
-
 from api.supabase_client import supabase
 
+# Get all teachers from Supabase
+def get_teachers():
+    response = (
+        supabase
+        .table("users")
+        .select("email, role")
+        .eq("role", "teacher")
+        .execute()
+    )
+
+    return response.data or []
 
 # Get raw weekly data from Supabase
 def get_weekly_data():
+    from api.supabase_client import supabase
     today = datetime.today()
     start_of_week = today - timedelta(days=6)
 
