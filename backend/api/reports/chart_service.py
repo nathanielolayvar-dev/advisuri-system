@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from datetime import datetime
 from io import BytesIO
 
 from .services import (
@@ -6,11 +7,12 @@ from .services import (
     get_weekly_summary
 )
 
-def generate_forecast_chart(): #Completion Forecast
-    data = get_daily_completion_chart()
+def generate_forecast_chart(data): #Completion Forecast
 
-    dates = [d["date"] for d in data]
-    values = [d["completion_rate"] for d in data]
+    daily = get_daily_completion_chart(data)
+
+    dates = [datetime.fromisoformat(d["date"]) for d in daily]
+    values = [d["completion_rate"] for d in daily]
 
     buffer = BytesIO()
 
@@ -30,11 +32,12 @@ def generate_forecast_chart(): #Completion Forecast
     buffer.seek(0)
     return buffer
 
-def generate_velocity_chart(): #Task Velocity
-    data = get_daily_completion_chart()
+def generate_velocity_chart(data): #Task Velocity
 
-    dates = [d["date"] for d in data]
-    values = [d["completion_rate"] for d in data]
+    daily = get_daily_completion_chart(data)
+
+    dates = [datetime.fromisoformat(d["date"]) for d in daily]
+    values = [d["completion_rate"] for d in daily]
 
     buffer = BytesIO()
 
@@ -55,8 +58,8 @@ def generate_velocity_chart(): #Task Velocity
     buffer.seek(0)
     return buffer
 
-def generate_balance_chart(): #Contribution Balance
-    summary = get_weekly_summary()
+def generate_balance_chart(data): #Contribution Balance
+    summary = get_weekly_summary(data)
 
     labels = ["Completed", "Overdue"]
     values = [
@@ -81,11 +84,12 @@ def generate_balance_chart(): #Contribution Balance
     buffer.seek(0)
     return buffer
 
-def generate_prediction_chart(): #Workload Prediction
-    data = get_daily_completion_chart()
+def generate_prediction_chart(data): #Workload Prediction
 
-    dates = [d["date"] for d in data]
-    values = [d["completion_rate"] for d in data]
+    daily = get_daily_completion_chart(data)
+
+    dates = [datetime.fromisoformat(d["date"]) for d in daily]
+    values = [d["completion_rate"] for d in daily]
 
     buffer = BytesIO()
 
@@ -104,8 +108,8 @@ def generate_prediction_chart(): #Workload Prediction
     buffer.seek(0)
     return buffer
 
-def generate_buffer_chart(): #Milestone Buffer
-    summary = get_weekly_summary()
+def generate_buffer_chart(data): #Milestone Buffer
+    summary = get_weekly_summary(data)
 
     buffer = BytesIO()
 
@@ -120,8 +124,8 @@ def generate_buffer_chart(): #Milestone Buffer
     buffer.seek(0)
     return buffer
 
-def generate_pulse_chart(): #Activity Pulse
-    summary = get_weekly_summary()
+def generate_pulse_chart(data): #Activity Pulse
+    summary = get_weekly_summary(data)
 
     value = summary["avg_completion"]
 
@@ -139,8 +143,8 @@ def generate_pulse_chart(): #Activity Pulse
     buffer.seek(0)
     return buffer
 
-def generate_bandwidth_chart(): #Member Bandwidth
-    summary = get_weekly_summary()
+def generate_bandwidth_chart(data): #Member Bandwidth
+    summary = get_weekly_summary(data)
 
     labels = ["Tasks"]
     values = [summary["total_tasks"]]
@@ -158,8 +162,8 @@ def generate_bandwidth_chart(): #Member Bandwidth
     buffer.seek(0)
     return buffer
 
-def generate_risk_chart(): #Risk Chart
-    summary = get_weekly_summary()
+def generate_risk_chart(data): #Risk Chart
+    summary = get_weekly_summary(data)
 
     labels = ["Low", "Medium", "High"]
     values = [1, 2, summary["overdue"]]

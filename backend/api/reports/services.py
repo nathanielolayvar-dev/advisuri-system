@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from collections import defaultdict
+
 from api.supabase_client import supabase
 
-# Get all teachers from Supabase
 def get_teachers():
     response = (
         supabase
@@ -16,7 +16,6 @@ def get_teachers():
 
 # Get raw weekly data from Supabase
 def get_weekly_data():
-    from api.supabase_client import supabase
     today = datetime.today()
     start_of_week = today - timedelta(days=6)
 
@@ -30,9 +29,7 @@ def get_weekly_data():
 
     return response.data if response.data else []
 
-def get_daily_completion_chart(): # Daily Chart Data
-    data = get_weekly_data()
-
+def get_daily_completion_chart(data):  # pass data
     daily = defaultdict(lambda: {"completed": 0, "total": 0})
 
     for task in data:
@@ -57,9 +54,7 @@ def get_daily_completion_chart(): # Daily Chart Data
 
     return sorted(chart, key=lambda x: x["date"])
 
-def get_weekly_summary(): # Weekly Summary
-    data = get_weekly_data()
-
+def get_weekly_summary(data):  # pass data
     total_tasks = len(data)
     completed = sum(1 for t in data if t.get("status") == "completed")
     overdue = sum(1 for t in data if t.get("status") == "overdue")
@@ -76,7 +71,9 @@ def get_weekly_summary(): # Weekly Summary
     }
 
 def get_weekly_analytics():
+    data = get_weekly_data()  # ONLY ONE API CALL
+
     return {
-        "summary": get_weekly_summary(),
-        "daily": get_daily_completion_chart()
+        "summary": get_weekly_summary(data),
+        "daily": get_daily_completion_chart(data)
     }

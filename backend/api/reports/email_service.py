@@ -18,7 +18,7 @@ from .chart_service import (
 )
 
 # Local
-from .services import get_weekly_summary
+from .services import get_weekly_data, get_weekly_summary, get_daily_completion_chart
 
 def generate_pdf_report():
     buffer = BytesIO()
@@ -27,7 +27,10 @@ def generate_pdf_report():
     styles = getSampleStyleSheet()
     elements = []
 
-    summary = get_weekly_summary()
+    analytics = get_weekly_analytics()
+
+    summary = analytics["summary"]
+    daily = analytics["daily"]
 
     today = datetime.today()
     start_of_week = today - timedelta(days=6)

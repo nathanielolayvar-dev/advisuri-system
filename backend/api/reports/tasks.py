@@ -4,6 +4,17 @@ from api.supabase_client import supabase
 from .services import get_teachers
 from .email_service import send_report_email, generate_pdf_report
 
+def get_teachers():
+    response = (
+        supabase
+        .table("users")
+        .select("email, role")
+        .eq("role", "teacher")
+        .execute()
+    )
+
+    return response.data or []
+
 @shared_task
 def send_weekly_report_task():
     print("TASK RUNNING")  # temporary test
