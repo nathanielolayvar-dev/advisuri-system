@@ -14,8 +14,8 @@ def get_teachers():
 
     return response.data or []
 
-# Get raw weekly data from Supabase
-def get_weekly_data():
+# Get raw weekly data per group from Supabase
+def get_weekly_data(group_id):
     today = datetime.today()
     start_of_week = today - timedelta(days=6)
 
@@ -23,11 +23,12 @@ def get_weekly_data():
         supabase
         .table("tasks")
         .select("*")
+        .eq("group_id", group_id) 
         .gte("created_at", start_of_week.isoformat())
         .execute()
     )
 
-    return response.data if response.data else []
+    return response.data or []
 
 def get_daily_completion_chart(data):  # pass data
     daily = defaultdict(lambda: {"completed": 0, "total": 0})
@@ -70,8 +71,8 @@ def get_weekly_summary(data):  # pass data
         "avg_completion": round(avg_completion, 2)
     }
 
-def get_weekly_analytics():
-    data = get_weekly_data()  # ONLY ONE API CALL
+def get_weekly_analytics(group_id):
+    data = get_weekly_data(group_id)
 
     return {
         "summary": get_weekly_summary(data),

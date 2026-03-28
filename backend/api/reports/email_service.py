@@ -17,17 +17,13 @@ from .chart_service import (
     generate_velocity_chart,
 )
 
-# Local
-from .services import get_weekly_data, get_weekly_summary, get_daily_completion_chart
-
-def generate_pdf_report():
+# receives group + analytics
+def generate_pdf_report(group, analytics):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
 
     styles = getSampleStyleSheet()
     elements = []
-
-    analytics = get_weekly_analytics()
 
     summary = analytics["summary"]
     daily = analytics["daily"]
@@ -35,7 +31,10 @@ def generate_pdf_report():
     today = datetime.today()
     start_of_week = today - timedelta(days=6)
 
-    elements.append(Paragraph("<b>WEEKLY ANALYTICS REPORT</b>", styles['Title']))
+    # ✅ GROUP TITLE
+    elements.append(
+        Paragraph(f"<b>{group['group_name']} - WEEKLY ANALYTICS REPORT</b>", styles['Title'])
+    )
     elements.append(Spacer(1, 12))
 
     elements.append(
@@ -45,6 +44,8 @@ def generate_pdf_report():
         )
     )
     elements.append(Spacer(1, 20))
+
+    #Summary Section
     elements.append(Paragraph("<b>Executive Summary</b>", styles['Heading2']))
 
     elements.append(
@@ -65,9 +66,10 @@ def generate_pdf_report():
         elements.append(Paragraph(f"<b>{title}</b>", styles['Heading2']))
         elements.append(Spacer(1, 10))
 
-        chart = chart_func()
-        elements.append(Image(chart, width=400, height=250))
+        # pass daily data
+        chart = chart_func(daily)
 
+        elements.append(Image(chart, width=400, height=250))
         elements.append(Spacer(1, 20))
 
     add_chart("1. Completion Forecast", generate_forecast_chart)
@@ -79,6 +81,7 @@ def generate_pdf_report():
     add_chart("7. Team Bandwidth", generate_bandwidth_chart)
     add_chart("8. Risk Overview", generate_risk_chart)
 
+    #Insights
     elements.append(Paragraph("<b>Analysis & Insights</b>", styles['Heading2']))
 
     if summary['avg_completion'] >= 80:
@@ -91,6 +94,7 @@ def generate_pdf_report():
     elements.append(Paragraph(insight, styles['Normal']))
     elements.append(Spacer(1, 12))
 
+    #Conclusion
     elements.append(Paragraph("<b>Conclusion</b>", styles['Heading2']))
     elements.append(
         Paragraph(
@@ -104,19 +108,18 @@ def generate_pdf_report():
     buffer.seek(0)
     return buffer
 
-def send_report_email(to_email, pdf_buffer):
-    pdf_buffer = generate_pdf_report()
-
-    email = EmailMessage(
-        subject="Weekly Analytics Report",
-        body="Attached is your automated analytics report.",
-        to=[to_email],
+def send_report_email(email, attachments):
+    msg = EmailMessage(
+        subject="Weekly Reports",
+        body="Attached are your group reports.",
+        to=[email],
     )
 
-    email.attach(
-        "weekly_report.pdf",
-        pdf_buffer.getvalue(),
-        "application/pdf",
-    )
+    for file in attachments:
+        msg.attach(
+            file["filename"],
+            file["file"].read(),
+            "application/pdf"
+        )
 
-    email.send()
+    msg.send()

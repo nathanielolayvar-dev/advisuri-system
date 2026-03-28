@@ -3,13 +3,10 @@ from datetime import datetime
 from io import BytesIO
 
 from .services import (
-    get_daily_completion_chart,
     get_weekly_summary
 )
 
-def generate_forecast_chart(data): #Completion Forecast
-
-    daily = get_daily_completion_chart(data)
+def generate_forecast_chart(daily): #Completion Forecast
 
     dates = [datetime.fromisoformat(d["date"]) for d in daily]
     values = [d["completion_rate"] for d in daily]
@@ -32,9 +29,7 @@ def generate_forecast_chart(data): #Completion Forecast
     buffer.seek(0)
     return buffer
 
-def generate_velocity_chart(data): #Task Velocity
-
-    daily = get_daily_completion_chart(data)
+def generate_velocity_chart(daily): #Task Velocity
 
     dates = [datetime.fromisoformat(d["date"]) for d in daily]
     values = [d["completion_rate"] for d in daily]
@@ -84,9 +79,7 @@ def generate_balance_chart(data): #Contribution Balance
     buffer.seek(0)
     return buffer
 
-def generate_prediction_chart(data): #Workload Prediction
-
-    daily = get_daily_completion_chart(data)
+def generate_prediction_chart(daily): #Workload Prediction
 
     dates = [datetime.fromisoformat(d["date"]) for d in daily]
     values = [d["completion_rate"] for d in daily]
