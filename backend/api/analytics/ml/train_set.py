@@ -7,10 +7,23 @@ import random
 from datetime import datetime, timedelta
 from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
+from dotenv import load_dotenv
 
-# Load environment variable
+
+# Load environment variables from .env file
+load_dotenv()
+
+# --- Use environment variables for the full connection string ---
+db_user = os.getenv("DB_USER")
 password = os.getenv("DB_PWD")
-DB_URI = f"postgresql://postgres.behbluflerhbslixhywa:{password}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+
+if not all([db_user, password, db_host, db_port, db_name]):
+    raise ValueError("One or more database environment variables are missing. Check your .env file.")
+
+DB_URI = f"postgresql://{db_user}:{password}@{db_host}:{db_port}/{db_name}"
 
 def train_and_upload_to_supabase():
     # --- PART 1: AI MODEL TRAINING (Remains Same) ---
@@ -36,41 +49,78 @@ def train_and_upload_to_supabase():
 
     try:
         # 1. Update the AI Model
-        cur.execute("INSERT INTO ai_models (model_name, model_binary, version) VALUES (%s, %s, %s) ON CONFLICT (model_name) DO UPDATE SET model_binary = EXCLUDED.model_binary;", 
+        cur.execute('INSERT INTO "Risk_Detection_TestSet" (model_name, model_binary, version) VALUES (%s, %s, %s) ON CONFLICT (model_name) DO UPDATE SET model_binary = EXCLUDED.model_binary;', 
                     ('risk_big_data_model', psycopg2.Binary(binary_data), '1.0.0'))
 
         # 2. Setup Variables
-        users = ['user_alpha', 'user_beta', 'user_gamma', 'user_delta']
-        test_group_id = 'group_777' # Our testing group ID
+        print("🔍 Fetching valid group and users from the database...")
+        
+        # Get a real group UUID to attach data to
+        try:
+            cur.execute("SELECT group_id FROM groups LIMIT 1;")
+            group_record = cur.fetchone()
+            if not group_record:
+                print("⚠️ No groups found in 'groups' table. Make sure you have a group created.")
+                return
+            test_group_id = group_record[0]
+        except psycopg2.Error:
+            conn.rollback()
+            # Fallback if using Django table
+            cur.execute("SELECT id FROM api_group LIMIT 1;")
+            group_record = cur.fetchone()
+            if not group_record:
+                print("⚠️ No groups found in 'api_group'. Make sure you have a group created.")
+                return
+            test_group_id = group_record[0]
+
+        # Get real user UUIDs
+        try:
+            cur.execute("SELECT user_id FROM users LIMIT 4;")
+            user_records = cur.fetchall()
+            users = [r[0] for r in user_records]
+        except psycopg2.Error:
+            conn.rollback()
+            # Fallback if using Django table
+            cur.execute("SELECT id FROM api_user LIMIT 4;")
+            user_records = cur.fetchall()
+            users = [r[0] for r in user_records]
+
+        if not users:
+            print("⚠️ No users found! Make sure you have at least one user.")
+            return
+            
         now = datetime.now()
 
         # --- NEW: CLEANUP (Prevents duplicate bloat) ---
-        print(f"🧹 Clearing old test data for {test_group_id}...")
+        print(f"🧹 Clearing old test data for group {test_group_id}...")
         cur.execute("DELETE FROM tasks WHERE group_id = %s", (test_group_id,))
-        cur.execute("DELETE FROM messages WHERE project_id = %s", (test_group_id,))
+        cur.execute("DELETE FROM chat_messages WHERE group_id = %s", (test_group_id,))
 
         # 3. Generate 150 Tasks
         print("📝 Generating 150 tasks...")
         for i in range(150):
             assignee_id = random.choice(users)
+            creator_id = random.choice(users)
             start_date = now - timedelta(days=random.randint(10, 45))
             
             if random.random() > 0.3:
                 # COMPLETED TASK
                 progress = 100
-                end_date = start_date + timedelta(days=random.randint(1, 7))
-                is_overdue = False
+                due_date = start_date + timedelta(days=random.randint(1, 7))
+                status = 'completed'
+                completed_at = due_date
             else:
                 # PENDING TASK
                 progress = random.randint(0, 90)
-                end_date = now + timedelta(days=random.randint(-5, 10))
-                # Logic: If progress < 100 and end_date is past, it's overdue
-                is_overdue = end_date < now
+                due_date = now + timedelta(days=random.randint(-5, 10))
+                status = 'pending'
+                completed_at = None
 
+            # Insert required columns along with 'title' to satisfy NOT NULL constraints
             cur.execute("""
-                INSERT INTO tasks (group_id, assignee_id, progress_percentage, start_date, end_date, is_overdue, task_name)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (test_group_id, assignee_id, progress, start_date, end_date, is_overdue, f"Task {i}"))
+                INSERT INTO tasks (group_id, assigned_to, creator_id, progress_percentage, due_date, status, completed_at, title)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (test_group_id, assignee_id, creator_id, progress, due_date, status, completed_at, f"Task {i}"))
 
         # 4. Generate 50 Messages
         print("💬 Generating 50 messages...")
@@ -78,12 +128,12 @@ def train_and_upload_to_supabase():
             user_id = random.choice(users)
             msg_time = now - timedelta(hours=random.randint(0, 72))
             cur.execute("""
-                INSERT INTO messages (project_id, user_id, content, created_at)
+                INSERT INTO chat_messages (group_id, user_id, text, created_at)
                 VALUES (%s, %s, %s, %s)
-            """, (test_group_id, user_id, "Sample project communication", msg_time))
+            """, (test_group_id, user_id, f"Sample project communication {i}", msg_time))
 
         conn.commit()
-        print(f"✅ Success: {test_group_id} is ready for AI analysis!")
+        print(f"✅ Success: Group {test_group_id} is ready for AI analysis!")
 
     except Exception as e:
         conn.rollback()

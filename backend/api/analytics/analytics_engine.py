@@ -21,9 +21,16 @@ class AnalyticsEngine:
         self.tasks_df = tasks_df
         self.messages_df = messages_df
 
-        # Load DB_URI from environment
+        # Build DB_URI from environment variables for consistency
+        db_user = os.getenv("DB_USER")
         password = os.getenv("DB_PWD")
-        self.db_uri = f"postgresql://postgres.behbluflerhbslixhywa:{password}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+        db_host = os.getenv("DB_HOST")
+        db_port = os.getenv("DB_PORT")
+        db_name = os.getenv("DB_NAME")
+        
+        if not all([db_user, password, db_host, db_port, db_name]):
+            raise ValueError("Database connection variables are missing from environment.")
+        self.db_uri = f"postgresql://{db_user}:{password}@{db_host}:{db_port}/{db_name}"
         
         # Load the "Big Data" 1M row model for Risk Detection
         self.model, self.scaler = self._load_model_from_supabase()
@@ -32,7 +39,7 @@ class AnalyticsEngine:
         try:
             conn = psycopg2.connect(self.db_uri)
             cur = conn.cursor()
-            cur.execute("SELECT model_binary FROM ai_models WHERE model_name = %s", ('risk_big_data_model',))
+            cur.execute('SELECT model_binary FROM "Risk_Detection_TestSet" WHERE model_name = %s', ('risk_big_data_model',))
             record = cur.fetchone()
             cur.close()
             conn.close()
@@ -71,7 +78,20 @@ class AnalyticsEngine:
         if forecast_date == "Need more data" or forecast_date is None:
             buffer_days = 0
         else:
-            buffer_days = calculate_buffer(forecast_date, deadline_str)
+            # Convert 'Apr 15, 2026' (or similar) to 'YYYY-MM-DD' for calculate_buffer
+            try:
+                formatted_date = datetime.strptime(forecast_date, "%b %d, %Y").strftime("%Y-%m-%d")
+            except ValueError:
+                # Fallback just in case the date is already formatted or in an unexpected format
+                formatted_date = forecast_date
+                
+            # Convert deadline string to a date object since calculate_buffer expects it
+            if isinstance(deadline_str, str):
+                deadline_date = datetime.strptime(deadline_str, "%Y-%m-%d").date()
+            else:
+                deadline_date = deadline_str
+                
+            buffer_days = calculate_buffer(formatted_date, deadline_date)
 
         # 4. At-Risk Detection (Using 1M Row Model)
         # Using the column 'is_overdue' which we added to your DB

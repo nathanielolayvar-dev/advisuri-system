@@ -235,7 +235,12 @@ class GroupAnalyticsDashboard(APIView):
             })
         
             if "is_overdue" not in tasks_df.columns:
-                tasks_df["is_overdue"] = False
+                if not tasks_df.empty and "end_date" in tasks_df.columns:
+                    now = pd.Timestamp.utcnow()
+                    temp_dates = pd.to_datetime(tasks_df["end_date"], utc=True, errors='coerce')
+                    tasks_df["is_overdue"] = (tasks_df["status"] != "completed") & (temp_dates < now)
+                else:
+                    tasks_df["is_overdue"] = False
 
         messages_df = pd.DataFrame(
             messages_data,
@@ -254,8 +259,12 @@ class GroupAnalyticsDashboard(APIView):
         engine = AnalyticsEngine(tasks_df, messages_df)
 
         # 5. Prepare inputs
-        # No deadline in DB → temporary fallback
-        deadline_str = "2026-12-31"
+        # Dynamically set the deadline based on the project's latest task
+        if not tasks_df.empty and "end_date" in tasks_df.columns:
+            latest_date = pd.to_datetime(tasks_df["end_date"], errors='coerce').max()
+            deadline_str = latest_date.strftime("%Y-%m-%d") if pd.notnull(latest_date) else "2026-12-31"
+        else:
+            deadline_str = "2026-12-31"
 
         current_user_id = (
             request.user.id if request.user.is_authenticated else None
