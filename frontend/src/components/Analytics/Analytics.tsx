@@ -26,29 +26,19 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   const bufferChartRef = useRef<any>(null);
   const predictionChartRef = useRef<any>(null);
 
-  React.useEffect(() => {
-    let isSubscribed = true;
-    setIsMounted(true);
-
-    // 300ms delay gives the "Sidebar" and "Grid" time to finish moving
+  useEffect(() => {
+    // Give React 350ms to finish its "Double Invoke" and layout
     const timer = setTimeout(() => {
-      if (isSubscribed) {
-        setIsReady(true);
-      }
-    }, 300);
+      setIsReady(true);
+    }, 350);
 
     return () => {
-      isSubscribed = false;
       clearTimeout(timer);
-
-      // Immediately hide the charts during unmount.
-      // This allows ApexCharts to run its .destroy() method safely
-      // while the parentNode still exists in the DOM.
-      setIsReady(false);
+      setIsReady(false); // Kill charts immediately on unmount
     };
   }, []);
 
-  // 2. DATA DESTRUCTURING & FALLBACKS
+  // DATA DESTRUCTURING & FALLBACKS
   const { metrics, member_report, history, group_id } = analyticsData || {};
 
   const memberNames = useMemo(
@@ -83,7 +73,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     ? incomingPrediction
     : [0];
 
-  // 3. APEXCHARTS CONFIGURATIONS (Memoized)
+  // APEXCHARTS CONFIGURATIONS (Memoized)
   const pulseOptions: ApexOptions = useMemo(
     () => ({
       chart: {
@@ -289,7 +279,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     [predictionDates]
   );
 
-  // 4. GUARD CLAUSE (Ensures DOM and Data are ready)
+  // GUARD CLAUSE (Ensures DOM and Data are ready)
   if (!analyticsData || !isReady || !isMounted || !metrics) {
     return (
       <div className="flex h-96 items-center justify-center text-slate-500 animate-pulse font-bold uppercase tracking-widest">
@@ -298,7 +288,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     );
   }
 
-  // 5. RENDER
+  // RENDER
   return (
     <div className="container p-6 space-y-8 animate-in fade-in duration-500">
       <header className="flex justify-between items-end">
@@ -346,7 +336,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="forecast"
+              key={`forecast-${group_id}`} // Dynamic key
               ref={forecastChartRef}
               options={forecastOptions}
               series={[
@@ -364,7 +354,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="risk"
+              key={`risk-${group_id}`} // Dynamic key
               ref={riskChartRef}
               options={riskOptions}
               series={[
@@ -391,7 +381,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="pulse"
+              key={`pulse-${group_id}`} // Dynamic key
               ref={pulseChartRef}
               options={pulseOptions}
               series={[pulse]}
@@ -406,7 +396,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="balance"
+              key={`balance-${group_id}`} // Dynamic key
               ref={balanceChartRef}
               options={balanceOptions}
               series={memberLoads.length ? memberLoads : []}
@@ -421,7 +411,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="velocity"
+              key={`velocity-${group_id}`} // Dynamic key
               ref={velocityChartRef}
               options={velocityOptions}
               series={[
@@ -442,7 +432,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="bandwidth"
+              key={`bandwidth-${group_id}`} // Dynamic key
               ref={bandwidthChartRef}
               options={bandwidthOptions}
               series={[
@@ -463,7 +453,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="buffer"
+              key={`buffer-${group_id}`} // Dynamic key
               ref={bufferChartRef}
               options={bufferOptions}
               series={[{ name: 'Days', data: [bufferDays] }]}
@@ -478,12 +468,12 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           {isReady && (
             <Chart
-              key="prediction"
+              key={`prediction-${group_id}`} // Dynamic key
               ref={predictionChartRef}
               options={predictionOptions}
               series={[
-                { name: 'Backlog', data: safeBacklogPrediction },
-                { name: 'Predicted', data: safeIncomingPrediction },
+                { name: 'Backlog', data: safeBacklogPrediction ?? [] },
+                { name: 'Predicted', data: safeIncomingPrediction ?? [] },
               ]}
               type="area"
               height={280}
