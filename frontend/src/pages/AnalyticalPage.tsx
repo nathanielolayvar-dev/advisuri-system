@@ -19,7 +19,7 @@ import { useSidebar } from '../components/Sidebar/SidebarContext';
 const AnalyticsPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const { isPinned, isHovered } = useSidebar();
- 
+
   // State Management
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,43 +28,33 @@ const AnalyticsPage = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [groupsLoading, setGroupsLoading] = useState(true);
 
-  console.log("loading:", loading);
-  console.log("groupsLoading:", groupsLoading);
-  console.log("selectedGroupId:", selectedGroupId);
-  console.log("data:", data);
+  console.log('loading:', loading);
+  console.log('groupsLoading:', groupsLoading);
+  console.log('selectedGroupId:', selectedGroupId);
+  console.log('data:', data);
 
   const marginClass = isPinned || isHovered ? 'ml-64' : 'ml-20';
 
   useEffect(() => {
-    if (selectedGroupId) {
-       loadData();
-    }
-  }, [selectedGroupId]);
-
-  useEffect(() => {
-  const fetchGroups = async () => {
-    try {
-      const result = await getGroups();
-
-      if (result.data && result.data.length > 0) {
-        setGroups(result.data);
-
-        const defaultGroup = groupId || result.data[0].id;
-
-        console.log("Groups fetched:", result.data);
-        console.log("Default group:", defaultGroup);
-
-        setSelectedGroupId(defaultGroup);
+    const initialize = async () => {
+      setGroupsLoading(true);
+      try {
+        const result = await getGroups();
+        if (result.data && result.data.length > 0) {
+          setGroups(result.data);
+          // Priority: 1. URL Param, 2. Previous Selection, 3. First Group
+          const targetId = groupId || selectedGroupId || result.data[0].id;
+          setSelectedGroupId(targetId);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setGroupsLoading(false);
       }
-    } catch (err) {
-      console.error("Error fetching groups:", err);
-    } finally {
-      setGroupsLoading(false);
-    }
-  };
+    };
 
-  fetchGroups();
-}, [groupId]);
+    initialize();
+  }, [groupId]); // Only re-run if the URL changes
 
   const loadData = async () => {
     const effectiveGroupId =
@@ -76,7 +66,7 @@ const AnalyticsPage = () => {
       setLoading(true);
       setError(null);
       const result = await analyticsService.getGroupAnalytics(effectiveGroupId);
-      console.log("🔥 FINAL DATA:", result); 
+      console.log('🔥 FINAL DATA:', result);
       setData(result);
     } catch (err) {
       // This catches the 404 or network errors
@@ -84,8 +74,6 @@ const AnalyticsPage = () => {
         'The intelligence engine is currently unreachable or the group data was not found.'
       );
       setData(null);
-    } finally {
-      setTimeout(() => setLoading(false), 500);
     }
   };
 
@@ -152,6 +140,13 @@ const AnalyticsPage = () => {
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ease-in-out ${marginClass}`}
       >
+        {/* Show a thin loading bar or overlay instead of replacing the whole page */}
+        {loading && (
+          <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center">
+            <Loader2 className="animate-spin text-indigo-600 h-10 w-10" />
+          </div>
+        )}
+
         <header className="h-20 bg-white/60 backdrop-blur-xl border-b border-slate-200/60 flex items-center justify-between px-10 sticky top-0 z-30">
           <div className="flex items-center gap-6">
             <div>
@@ -194,19 +189,17 @@ const AnalyticsPage = () => {
           </div>
         </header>
 
-        <main className="p-10 flex-1 overflow-y-auto">
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <main className="p-10 flex-1">
+          {/* Only hide the dashboard if we literally have NO data at all */}
+          {data ? (
             <AnalyticsDashboard analyticsData={data} />
-          </div>
+          ) : (
+            <div className="text-center p-20">
+              Select a group to begin analysis
+            </div>
+          )}
         </main>
       </div>
-
-      <button className="fixed bottom-10 right-10 w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl hover:bg-indigo-600 hover:-translate-y-2 active:scale-90 transition-all z-50 group">
-        <HelpCircle
-          size={32}
-          className="group-hover:rotate-12 transition-transform"
-        />
-      </button>
     </div>
   );
 };
