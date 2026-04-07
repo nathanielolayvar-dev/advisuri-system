@@ -77,6 +77,52 @@ const AnalyticsPage = () => {
     }
   };
 
+  useEffect(() => {
+    const initializeDashboard = async () => {
+      setLoading(true);
+      try {
+        // 1. Fetch Groups First
+        const groupResult = await getGroups();
+        if (groupResult.data && groupResult.data.length > 0) {
+          setGroups(groupResult.data);
+
+          // 2. Decide which ID to use (URL param or first group)
+          const targetId = groupId || groupResult.data[0].id;
+          setSelectedGroupId(targetId);
+
+          // 3. Fetch the actual Analytics for that ID
+          const analyticsResult =
+            await analyticsService.getGroupAnalytics(targetId);
+          setData(analyticsResult);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Initialization Error:', err);
+        setError('Failed to sync AI insights. Please check your connection.');
+      } finally {
+        // 4. Turn off loading ONLY after everything is done
+        setLoading(false);
+        setGroupsLoading(false);
+      }
+    };
+
+    initializeDashboard();
+  }, [groupId]); // Re-run only if the URL changes
+
+  const handleGroupChange = async (newId: string) => {
+    setSelectedGroupId(newId);
+    setLoading(true); // Show the overlay/loader
+    try {
+      const result = await analyticsService.getGroupAnalytics(newId);
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError('Could not load data for this group.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- 1. LOADING STATE ---
   if (loading || groupsLoading) {
     return (
@@ -162,7 +208,7 @@ const AnalyticsPage = () => {
               <div className="relative">
                 <select
                   value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  onChange={(e) => handleGroupChange(e.target.value)}
                   className="appearance-none bg-indigo-50 border border-indigo-200 text-indigo-700 py-2 px-4 pr-10 rounded-xl font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   {groups.map((group) => (
