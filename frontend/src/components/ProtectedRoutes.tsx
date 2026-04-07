@@ -1,40 +1,75 @@
 import { Navigate } from "react-router-dom";
-import { useState, useEffect, ReactNode } from "react";
-// IMPORTANT: Use the same supabase instance as your api.ts
+import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { supabase } from '../supabaseClient';
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
+const AUTH_TIMEOUT_MS = 5000;
+
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  const checkAuth = useCallback(async () => {
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      timeoutRef.current = setTimeout(() => {
+        resolve(false);
+      }, AUTH_TIMEOUT_MS);
+    });
+
+    try {
+      const sessionPromise = supabase.auth.getSession();
+      const [sessionResult] = await Promise.race([
+        sessionPromise,
+        timeoutPromise.then(() => ({ data: { session: null }, error: null }) as any)
+      ]);
+
+      if (!isMountedRef.current) return;
+
+      const hasSession = sessionResult?.data?.session !== null;
+      setIsAuthorized(hasSession);
+    } catch (err) {
+      if (isMountedRef.current) {
+        console.error('Auth check failed:', err);
+        setIsAuthorized(false);
+      }
+    } finally {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      // Get the session directly from the SDK
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthorized(!!session);
-    };
-
+    isMountedRef.current = true;
     checkAuth();
 
-    // Listen for auth state changes (Login, Logout, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthorized(!!session);
-  
-      if (session) {
-        localStorage.setItem("access", session.access_token);
-      } else {
-        localStorage.removeItem("access");
+      if (isMountedRef.current) {
+        setIsAuthorized(!!session);
+        if (session) {
+          localStorage.setItem("access", session.access_token);
+        } else {
+          localStorage.removeItem("access");
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      isMountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      subscription.unsubscribe();
+    };
+  }, [checkAuth]);
 
   if (isAuthorized === null) {
-    return <div>Loading...</div>; // Prevents "flickering" during redirect
+    return <div>Loading...</div>;
   }
 
   return isAuthorized ? <>{children}</> : <Navigate to="/login" />;
