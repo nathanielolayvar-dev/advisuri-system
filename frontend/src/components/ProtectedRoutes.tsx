@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
 import { supabase } from '../supabaseClient';
 
 interface ProtectedRouteProps {
@@ -13,39 +13,34 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
-  const checkAuth = useCallback(async () => {
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      timeoutRef.current = setTimeout(() => {
-        resolve(false);
-      }, AUTH_TIMEOUT_MS);
-    });
-
-    try {
-      const sessionPromise = supabase.auth.getSession();
-      const [sessionResult] = await Promise.race([
-        sessionPromise,
-        timeoutPromise.then(() => ({ data: { session: null }, error: null }) as any)
-      ]);
-
-      if (!isMountedRef.current) return;
-
-      const hasSession = sessionResult?.data?.session !== null;
-      setIsAuthorized(hasSession);
-    } catch (err) {
-      if (isMountedRef.current) {
-        console.error('Auth check failed:', err);
-        setIsAuthorized(false);
-      }
-    } finally {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    }
-  }, []);
-
   useEffect(() => {
     isMountedRef.current = true;
+
+    const checkAuth = async () => {
+      const timeoutId = setTimeout(() => {
+        isMountedRef.current = false;
+        setIsAuthorized(false);
+      }, AUTH_TIMEOUT_MS);
+      timeoutRef.current = timeoutId;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!isMountedRef.current) return;
+
+        clearTimeout(timeoutId);
+        timeoutRef.current = null;
+        setIsAuthorized(!!session);
+      } catch (err) {
+        if (isMountedRef.current) {
+          clearTimeout(timeoutId);
+          timeoutRef.current = null;
+          console.error('Auth check failed:', err);
+          setIsAuthorized(false);
+        }
+      }
+    };
+
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -66,7 +61,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
       }
       subscription.unsubscribe();
     };
-  }, [checkAuth]);
+  }, []);
 
   if (isAuthorized === null) {
     return <div>Loading...</div>;

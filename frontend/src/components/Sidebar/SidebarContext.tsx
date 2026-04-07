@@ -22,6 +22,8 @@ interface SidebarContextType {
   setAdminPanelOpen: (value: boolean) => void;
 }
 
+const AUTH_TIMEOUT_MS = 5000;
+
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -39,6 +41,8 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [authReady, setAuthReady] = useState(false);
   const [isAdminPanelOpen, setAdminPanelOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
   
   const [isPinned, setIsPinned] = useState<boolean>(() => {
     const saved = localStorage.getItem('sidebarPinned');
@@ -50,23 +54,24 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
       if (sessionError || !session?.user) {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
         return;
       }
 
       const authUser = session.user;
 
-      // FETCH FROM NEW 'users' TABLE
       const { data, error } = await supabase
-        .from("users") // Changed from api_user
+        .from("users")
         .select("user_id, full_name, email, role")
         .eq("user_id", authUser.id)
         .single();
 
       if (signal?.aborted) return;
+      if (!isMountedRef.current) return;
 
       if (data && !error) {
-        // Logic: Role is Teacher if the string matches 'teacher'
         const isTeacherRole = data.role?.toLowerCase() === 'teacher';
         const isAdminRole = data.role?.toLowerCase() === 'admin';
 
@@ -79,7 +84,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
           email: data.email,
         });
       } else {
-        // Fallback if data is missing or error occurs
         setUserData({
           name: authUser.email?.split('@')[0] || 'User',
           role: 'Student',
@@ -92,40 +96,60 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       console.error("Error in SidebarContext:", err);
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+        setAuthReady(true);
+      }
     }
   }, []);
 
-  // Initial fetch on mount
   useEffect(() => {
-    // Create new abort controller
+    isMountedRef.current = true;
     abortControllerRef.current = new AbortController();
-    
-    // Initial fetch
+
+    const timeoutId = setTimeout(() => {
+      if (isMountedRef.current) {
+        setLoading(false);
+        setAuthReady(true);
+      }
+    }, AUTH_TIMEOUT_MS);
+    timeoutRef.current = timeoutId;
+
     getUserProfile(abortControllerRef.current.signal).finally(() => {
-      setLoading(false);
-      setAuthReady(true);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (isMountedRef.current) {
+        setLoading(false);
+        setAuthReady(true);
+      }
     });
 
-    // Cleanup function
     return () => {
+      isMountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       abortControllerRef.current?.abort();
     };
   }, [getUserProfile]);
 
-  // Listen for auth changes (only after initial fetch is done)
   useEffect(() => {
     if (!authReady) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, _session) => {
-      // Only re-fetch on SIGNED_IN or TOKEN_REFRESHED
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (!isMountedRef.current) return;
+      
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // Abort any pending request
         abortControllerRef.current?.abort();
         abortControllerRef.current = new AbortController();
         
-        // Small delay to avoid race conditions
         setTimeout(() => {
-          getUserProfile(abortControllerRef.current?.signal);
+          if (isMountedRef.current) {
+            getUserProfile(abortControllerRef.current?.signal);
+          }
         }, 100);
       } else if (event === 'SIGNED_OUT') {
         setUserData(null);
@@ -137,7 +161,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [authReady, getUserProfile]);
 
-  // Effect for persistence (Runs when isPinned changes)
   useEffect(() => {
     localStorage.setItem('sidebarPinned', JSON.stringify(isPinned));
   }, [isPinned]);
