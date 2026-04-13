@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { analyticsService } from '../services/analyticsService';
 import { getGroups, GroupWithMembers } from '../services/groupService';
+import { useGroups } from '../hooks/useGroups';
 import { AnalyticsView as AnalyticsDashboard } from '../components/Analytics/Analytics';
 import { AnalyticsResponse } from '../shared/types';
 import {
@@ -21,12 +22,16 @@ const AnalyticsPage = () => {
   const { isPinned, isHovered } = useSidebar();
 
   // State Management
+  //Use your new hook here
+  const { groups, loading: groupsLoading } = useGroups();
+
+  // Main Analytics State
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [groups, setGroups] = useState<GroupWithMembers[]>([]);
+
+  // Selected Group State
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [groupsLoading, setGroupsLoading] = useState(true);
 
   console.log('loading:', loading);
   console.log('groupsLoading:', groupsLoading);
@@ -36,25 +41,44 @@ const AnalyticsPage = () => {
   const marginClass = isPinned || isHovered ? 'ml-64' : 'ml-20';
 
   useEffect(() => {
-    const initialize = async () => {
-      setGroupsLoading(true);
+    const updateAnalytics = async () => {
+      // 1. If we are still waiting for Supabase, just wait.
+      if (groupsLoading) return;
+
+      // 2. If Supabase finished but found 0 groups, stop loading and show error.
+      if (groups.length === 0) {
+        setLoading(false);
+        setError('No assigned groups found. Please contact your coordinator.');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
       try {
-        const result = await getGroups();
-        if (result.data && result.data.length > 0) {
-          setGroups(result.data);
-          // Priority: 1. URL Param, 2. Previous Selection, 3. First Group
-          const targetId = groupId || selectedGroupId || result.data[0].id;
-          setSelectedGroupId(targetId);
-        }
+        const isUrlValid = groups.some((g) => g.id === groupId);
+
+        const targetId = isUrlValid
+          ? (groupId as string)
+          : selectedGroupId && groups.some((g) => g.id === selectedGroupId)
+            ? selectedGroupId
+            : groups[0].id;
+
+        setSelectedGroupId(targetId);
+
+        const analyticsResult =
+          await analyticsService.getGroupAnalytics(targetId);
+        setData(analyticsResult);
       } catch (err) {
-        console.error(err);
+        console.error('Analytics Fetch Error:', err);
+        setError('The intelligence engine is currently unreachable.');
       } finally {
-        setGroupsLoading(false);
+        setLoading(false);
       }
     };
 
-    initialize();
-  }, [groupId]); // Only re-run if the URL changes
+    updateAnalytics();
+  }, [groupId, groups, groupsLoading]);
 
   const loadData = async () => {
     const effectiveGroupId =
@@ -76,38 +100,6 @@ const AnalyticsPage = () => {
       setData(null);
     }
   };
-
-  useEffect(() => {
-    const initializeDashboard = async () => {
-      setLoading(true);
-      try {
-        // 1. Fetch Groups First
-        const groupResult = await getGroups();
-        if (groupResult.data && groupResult.data.length > 0) {
-          setGroups(groupResult.data);
-
-          // 2. Decide which ID to use (URL param or first group)
-          const targetId = groupId || groupResult.data[0].id;
-          setSelectedGroupId(targetId);
-
-          // 3. Fetch the actual Analytics for that ID
-          const analyticsResult =
-            await analyticsService.getGroupAnalytics(targetId);
-          setData(analyticsResult);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('Initialization Error:', err);
-        setError('Failed to sync AI insights. Please check your connection.');
-      } finally {
-        // 4. Turn off loading ONLY after everything is done
-        setLoading(false);
-        setGroupsLoading(false);
-      }
-    };
-
-    initializeDashboard();
-  }, [groupId]); // Re-run only if the URL changes
 
   const handleGroupChange = async (newId: string) => {
     setSelectedGroupId(newId);
@@ -236,12 +228,18 @@ const AnalyticsPage = () => {
         </header>
 
         <main className="p-10 flex-1">
-          {/* Only hide the dashboard if we literally have NO data at all */}
-          {data ? (
-            <AnalyticsDashboard analyticsData={data} />
+          {/* 1. Check if loading is false
+              2. Check if data exists
+              3. Use a KEY to force the charts to reset when the ID changes
+          */}
+          {!loading && data ? (
+            <AnalyticsDashboard key={selectedGroupId} analyticsData={data} />
           ) : (
-            <div className="text-center p-20">
-              Select a group to begin analysis
+            <div className="flex flex-col items-center justify-center h-64">
+              <Loader2 className="animate-spin text-indigo-500 h-10 w-10 mb-4" />
+              <p className="text-slate-400 text-sm">
+                Loading group insights...
+              </p>
             </div>
           )}
         </main>

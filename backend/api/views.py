@@ -2,6 +2,7 @@ from tokenize import group
 
 from django.contrib.auth import get_user_model 
 from django.utils import timezone
+from django.conf import settings
 from rest_framework import generics, permissions, viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
@@ -20,6 +21,7 @@ from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, Grou
 from .analytics.analytics_engine import AnalyticsEngine
 import pandas as pd
 
+import requests
 import psycopg2
 import psycopg2.extras  
 import os
@@ -93,14 +95,50 @@ class SupabaseTestView(APIView):
             }, status=500)
 
 class GroupViewSet(viewsets.ModelViewSet):
-    queryset = Group.objects.all()
+    # queryset = Group.objects.all() <- override this with get_que  ryset to filter by user
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        # Return groups where the user is a member
-        return Group.objects.filter(members=user).prefetch_related('members')
+    
+        # Check if the user is actually authenticated in the eyes of Django
+        if not user.is_authenticated:
+            print("DEBUG: Django sees an ANONYMOUS user!")
+            return Group.objects.none() # Return nothing if not logged in
+        
+        # Fetch groups directly from Supabase Table
+        headers = {
+            "apikey": settings.SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {settings.SUPABASE_ANON_KEY}" # Or Service Role Key
+        }
+
+        # Query the 'api_group_members' table directly to see what this user owns
+        url = f"{settings.SUPABASE_URL}/rest/v1/api_group_members?user_id=eq.{user.supabase_id}&select=group_id,groups(name,course)"
+            
+        try:
+            response = requests.get(url, headers=headers)
+            supabase_data = response.json()
+
+            for item in supabase_data:
+                group_info = item.get('groups')
+                if group_info:
+                    # Create the group in Django if it doesn't exist locally
+                    group, created = Group.objects.get_or_create(
+                        id=item['group_id'], # Use Supabase UUID as Django ID
+                        defaults={
+                            'name': group_info['name'],
+                            'course': group_info.get('course', 'IS-OJT')
+                        }
+                    )
+                    # Ensure the current user is linked to this group in Django
+                    group.members.add(user)
+
+        except Exception as e:
+            print(f"Sync error: {e}")
+        
+        # Return ONLY the groups where this user is a member
+        return Group.objects.filter(members__supabase_id=user.supabase_id).distinct()
 
     def perform_create(self, serializer):
         group = serializer.save()

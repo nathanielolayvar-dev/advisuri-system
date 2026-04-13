@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
@@ -11,13 +13,14 @@ class User(AbstractUser):
         ('teacher', 'Teacher'),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
-# This helps link your Django user to Supabase Auth if needed later
+    # This helps link your Django user to Supabase Auth if needed later
     supabase_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
 
 class Group(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     course = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)

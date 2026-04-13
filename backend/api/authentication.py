@@ -36,18 +36,29 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
                 return None
 
             user_data = response.json()
-            email = user_data.get('email')
             supabase_uid = user_data.get('id') # This is the unique 'sub'
+            email = user_data.get('email')
+
+            # Get metadata if it exists (where full_name usually lives in Supabase Auth)
+            user_metadata = user_data.get('user_metadata', {})
+            app_metadata = user_data.get('app_metadata', {})
+            full_name = user_metadata.get('full_name', email) # Fallback to email if name is missing
+            supabase_role = (
+                app_metadata.get('role') or 
+                user_metadata.get('role') or 
+                'student'
+            ).lower() # Ensure it's lowercase to match ROLE_CHOICES
 
             # 3. Sync with your Django User model
             # We use update_or_create to ensure is_active is always True
             user, created = User.objects.update_or_create(
                 supabase_id=supabase_uid, 
                 defaults={
-                    'username': email, 
+                    'username': email, # Django requires a unique username
+                    'first_name': full_name, # Map Supabase full_name here
                     'email': email,
                     'is_active': True,
-                    'role': 'student' # Matches your ROLE_CHOICES in models.py
+                    'role': supabase_role # Use the real role from Supabase
                 }
             )
 
