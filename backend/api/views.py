@@ -26,11 +26,48 @@ import requests
 import psycopg2
 import psycopg2.extras  
 import os
+import joblib
+import io
 
 User = get_user_model()
 
+# --- AI MODEL REGISTRY & CACHING ---  Global variable to hold the model in memory
+_CACHED_MODEL = None
+
+def get_ai_model():
+    """
+    Fetches the ML model from Supabase binary storage and caches it in memory.
+    """
+    global _CACHED_MODEL
+    if _CACHED_MODEL is not None:
+        return _CACHED_MODEL
+
+    try:
+        # Fetch binary from Supabase using your existing helper
+        model_results = fetch_supabase_data(
+            "SELECT model_binary FROM \"Risk_Detection_TestSet\" WHERE model_name = %s",
+            ('risk_big_data_model',)
+        )
+        
+        if model_results:
+            binary_blob = model_results[0]['model_binary']
+            
+            # Convert memoryview to bytes if necessary (standard for psycopg2)
+            if isinstance(binary_blob, memoryview):
+                binary_blob = binary_blob.tobytes()
+            
+            # Load the bytes into a Python object
+            _CACHED_MODEL = joblib.load(io.BytesIO(binary_blob))
+            print("🤖 AI Model loaded successfully from Supabase.")
+            return _CACHED_MODEL
+            
+    except Exception as e:
+        print(f"❌ Error loading AI model from Supabase: {e}")
+    return None
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+
 def get_user_profile(request):
     user = request.user 
     full_name = f"{user.first_name} {user.last_name}".strip()
@@ -350,8 +387,16 @@ class GroupAnalyticsDashboard(APIView):
 
             inactivity_days = (pd.Timestamp.utcnow() - last_msg).days
         
-            # Run your AI algorithm
-        risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days)
+            # Run your AI algorithm (cloud-fetched model) to get risk level
+        model_payload = get_ai_model()
+
+        if model_payload:
+            # We pass the loaded model/scaler directly or update predict_project_risk 
+            # to handle a dictionary instead of a file path.
+            risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload)
+        else:
+            # Fallback if Supabase is down or model is missing
+            risk_data = {"status": "Low", "score": 1, "likelihood": 1, "impact": 1}
 
             # Update the metrics object for the frontend
         metrics.update({
@@ -464,3 +509,4 @@ class GroupAnalyticsDashboard(APIView):
             return "Balanced"
         else:
             return "Low"
+        
