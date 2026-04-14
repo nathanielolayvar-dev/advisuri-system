@@ -22,9 +22,12 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-3xl shadow-inner mb-4">
           ⚠️
         </div>
-        <h2 className="text-xl font-bold text-slate-600 mb-2">Analysis Unavailable</h2>
+        <h2 className="text-xl font-bold text-slate-600 mb-2">
+          Analysis Unavailable
+        </h2>
         <p className="text-sm max-w-md text-center">
-          {String(analyticsData?.error) || "We need more task data to generate an accurate AI predictive model."}
+          {String(analyticsData?.error) ||
+            'We need more task data to generate an accurate AI predictive model.'}
         </p>
       </div>
     );
@@ -155,32 +158,39 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
 
   //Risk Detection (Risk Matrix Grid)
   const riskOptions: ApexOptions = {
-    chart: { type: 'heatmap' },
-    dataLabels: { enabled: false },
+    chart: {
+      type: 'heatmap',
+      toolbar: { show: false },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val: number) => val.toString(), // Shows the 1-25 score inside the cell
+      style: {
+        fontSize: '14px',
+        fontWeight: 'bold',
+      },
+    },
     colors: ['#ef4444', '#f59e0b', '#10b981'],
-    xaxis: { categories: ['Low', 'Medium', 'High'] },
+    xaxis: {
+      categories: ['Low', 'Medium', 'High'],
+      title: { text: 'Likelihood' },
+    },
+    yaxis: {
+      title: { text: 'Impact Score' },
+    },
     plotOptions: {
       heatmap: {
-        radius: 4,
+        radius: 8,
+        enableShades: false,
         colorScale: {
           ranges: [
-            { from: 0, to: 1, color: '#10b981', name: 'Low Risk' },
-            { from: 2, to: 3, color: '#f59e0b', name: 'Medium Risk' },
-            { from: 4, to: 5, color: '#ef4444', name: 'High Risk' },
+            { from: 0, to: 5, color: '#10b981', name: 'Low' },
+            { from: 6, to: 14, color: '#f59e0b', name: 'Medium' },
+            { from: 15, to: 25, color: '#ef4444', name: 'High' },
           ],
         },
       },
     },
-    series: [
-      {
-        name: 'Impact',
-        data: [
-          { x: 'Low', y: 2 },
-          { x: 'Medium', y: 3 },
-          { x: 'High', y: 4 },
-        ],
-      },
-    ],
   };
 
   //Task Velocity (Bar + Trend Line)
@@ -273,9 +283,14 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             options={riskOptions}
             series={[
               {
-                name: 'Risk Zone',
+                name: 'Risk Level',
                 data: [
-                  /* map your risk data here */
+                  {
+                    // The X axis matches the labels: 'Low', 'Medium', or 'High'
+                    x: analyticsData.metrics.ai_risk_level,
+                    // The Y value triggers the color scale (1-25)
+                    y: analyticsData.metrics.risk_score,
+                  },
                 ],
               },
             ]}

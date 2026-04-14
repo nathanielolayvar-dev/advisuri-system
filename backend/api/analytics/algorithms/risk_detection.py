@@ -9,21 +9,37 @@ MODEL_PATH = os.path.join(BASE_DIR, '..', 'risk_model.pkl')
 def predict_project_risk(tasks_df, overdue_count, inactivity_days):
     total_tasks = len(tasks_df)
     overdue_ratio = overdue_count / total_tasks if total_tasks > 0 else 0
+    
+    # 1. DERIVE IMPACT (Calculated from workload)
+    # We look at task complexity if it exists, otherwise use volume.
+    # If tasks_df has a 'complexity' column (1-5), we average it.
+    if 'complexity' in tasks_df.columns:
+        avg_complexity = tasks_df['complexity'].mean()
+    else:
+        # Fallback: Higher task volume = Higher Impact on the project
+        avg_complexity = min(5, (total_tasks / 2)) 
 
-    # OPTION 1: Try to use the Scikit-Learn .pkl file
+    # 2. ML PREDICTION (Your existing logic)
+    risk_label = "Low"
     if os.path.exists(MODEL_PATH):
         try:
             model = joblib.load(MODEL_PATH)
+            # Ensure features match your .pkl training (Overdue, Inactivity, Total)
             prediction = model.predict([[overdue_ratio, inactivity_days, total_tasks]])[0]
-            return {0: "Low", 1: "Medium", 2: "High"}.get(prediction, "Low")
+            risk_label = {0: "Low", 1: "Medium", 2: "High"}.get(prediction, "Low")
         except:
-            pass # If loading fails, move to fallback
+            pass
 
-    # OPTION 2: The "Heuristic" Fallback (No Scikit-Learn needed)
-    # This acts as a 'safety net' so your UI still shows data
-    if overdue_ratio > 0.5 or inactivity_days > 7:
-        return "High"
-    elif overdue_ratio > 0.2 or inactivity_days > 3:
-        return "Medium"
+    # 3. MAP TO MATRIX (1-5 Scales)
+    # Likelihood = How likely they are to fail (based on past behavior)
+    likelihood_score = min(5, max(1, int(overdue_ratio * 5) + 1))
     
-    return "Low"
+    # Impact = how much this failure matters (based on task weight/volume)
+    impact_score = min(5, max(1, int(avg_complexity)))
+
+    return {
+        "status": risk_label,
+        "likelihood": likelihood_score, # X-axis
+        "impact": impact_score,         # Y-axis
+        "score": likelihood_score * impact_score # For ApexCharts heatmap color
+    }

@@ -14,6 +14,7 @@ from urllib3 import request
 from urllib3 import request
 
 from api.analytics.algorithms.member_bandwidth import calculate_detailed_bandwidth
+from api.analytics.algorithms.risk_detection import predict_project_risk
 
 # Models, Analytic Engine & Serializers
 from .models import TaskNote, Task, Message, Group, Document
@@ -241,7 +242,7 @@ class GroupAnalyticsDashboard(APIView):
 
         # 2. Fetch data from DB
         tasks_data = fetch_supabase_data(
-            "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, completed_at FROM tasks WHERE group_id = %s",
+            "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, completed_at, created_at FROM tasks WHERE group_id = %s",
             (group_id,)
         )
 
@@ -328,11 +329,37 @@ class GroupAnalyticsDashboard(APIView):
         # 8. Add history (REQUIRED for frontend charts)
         analysis_results["history"] = self.generate_history(tasks_df)
 
-        # 9. Ensure risk matrix fields exist
+        # 9. INTEGRATE AI RISK MATRIX LOGIC
         metrics = analysis_results.get("metrics", {})
-        metrics.setdefault("risk_likelihood", 0)
-        metrics.setdefault("risk_impact", 0)
-        metrics.setdefault("risk_urgency", 0)
+        
+            # Calculate behavioral markers
+        overdue_count = len(tasks_df[tasks_df["is_overdue"] == True]) if not tasks_df.empty else 0
+        
+            # Calculate inactivity (days since last message or task completion)
+            # We can derive this from your messages_df or tasks_df
+        if not messages_df.empty:
+            # .dt.tz_localize(None) removes timezone if it exists, 
+            # then we compare it against a naive 'now' to keep it simple.
+            last_msg = pd.to_datetime(messages_df['created_at']).max()
+            
+            # Ensure last_msg is UTC aware to match utcnow()
+            if last_msg.tzinfo is None:
+                last_msg = last_msg.tz_localize('UTC')
+            else:
+                last_msg = last_msg.tz_convert('UTC')
+
+            inactivity_days = (pd.Timestamp.utcnow() - last_msg).days
+        
+            # Run your AI algorithm
+        risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days)
+
+            # Update the metrics object for the frontend
+        metrics.update({
+            "ai_risk_level": risk_data["status"],      # "Low", "Medium", "High"
+            "risk_score": risk_data["score"],          # 1-25
+            "risk_likelihood": risk_data["likelihood"],# 1-5 (X-axis)
+            "risk_impact": risk_data["impact"],        # 1-5 (Y-axis)
+        })
 
         analysis_results["metrics"] = metrics
 

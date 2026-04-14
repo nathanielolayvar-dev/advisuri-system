@@ -372,13 +372,13 @@ export interface AnalyticsResponse {
     pulse: number;
     velocity: number;
     forecast_end_date: string;
-    ai_risk_level: string;
+    ai_risk_level: 'Low' | 'Medium' | 'High'; // Using a union type for better safety
     team_balance_score: number;
     buffer_days: number;
     // Add these if you are using them in the Risk Matrix
-    risk_likelihood?: number;
-    risk_impact?: number;
-    risk_urgency?: number;
+    risk_score: number; // likelihood * impact (1-25)
+    likelihood: number; // 1-5
+    impact: number; // 1-5
   };
   member_report: Array<{
     name: string;
