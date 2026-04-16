@@ -39,7 +39,7 @@ class AnalyticsEngine:
         try:
             conn = psycopg2.connect(self.db_uri)
             cur = conn.cursor()
-            cur.execute('SELECT model_binary FROM "Risk_Detection_TestSet" WHERE model_name = %s', ('risk_big_data_model',))
+            cur.execute('SELECT model_binary FROM "Risk_Matrix_TrainSet" WHERE model_name = %s', ('risk_big_data_model',))
             record = cur.fetchone()
             cur.close()
             conn.close()

@@ -1,13 +1,8 @@
-import os
-import joblib
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, '..', 'risk_model.pkl')
-
-def predict_project_risk(tasks_df, overdue_count, inactivity_days):
+def predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload=None):
     total_tasks = len(tasks_df)
     
     # 1. DERIVE IMPACT (Calculated from workload)
@@ -19,13 +14,12 @@ def predict_project_risk(tasks_df, overdue_count, inactivity_days):
         # Fallback: Higher task volume = Higher Impact on the project
         avg_complexity = min(5, (total_tasks / 2)) 
 
-    # 2. Prediction using the .pkl (The "AI" part)
+    # 2. Prediction using the passed model payload
     risk_label = "Low"
-    if os.path.exists(MODEL_PATH):
+    if model_payload:
         try:
-            model_data = joblib.load(MODEL_PATH)
-            model = model_data['model']
-            scaler = model_data['scaler']
+            model = model_payload['model']
+            scaler = model_payload['scaler']
 
             # Prepare the exact 3 features used in training
             features = np.array([[inactivity_days, total_tasks, overdue_count]])

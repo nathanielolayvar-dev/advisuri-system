@@ -14,6 +14,7 @@ from urllib3 import request
 from urllib3 import request
 
 from api.analytics.algorithms.member_bandwidth import calculate_detailed_bandwidth
+from api.analytics.algorithms.history_generator import generate_chart_history
 from api.analytics.algorithms.risk_detection import predict_project_risk
 
 # Models, Analytic Engine & Serializers
@@ -45,7 +46,7 @@ def get_ai_model():
     try:
         # Fetch binary from Supabase using your existing helper
         model_results = fetch_supabase_data(
-            "SELECT model_binary FROM \"Risk_Detection_TestSet\" WHERE model_name = %s",
+            "SELECT model_binary FROM \"Risk_Matrix_TrainSet\" WHERE model_name = %s",
             ('risk_big_data_model',)
         )
         
@@ -260,8 +261,6 @@ class GroupAnalyticsDashboard(APIView):
     def get(self, request, group_id):
         # 1. Validate group
         # BEFORE querying Supabase
-        print("DEBUG group_id:", group_id)
-        print("TYPE:", type(group_id))  
         try:
             group_data = fetch_supabase_data(
                 "SELECT * FROM groups WHERE group_id = %s",
@@ -274,16 +273,12 @@ class GroupAnalyticsDashboard(APIView):
             group = group_data[0]
         except Group.DoesNotExist:
             return Response({"error": "Group not found"}, status=404)
-        
-        print("Group query result:", group_data)
 
         # 2. Fetch data from DB
         tasks_data = fetch_supabase_data(
             "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, completed_at, created_at FROM tasks WHERE group_id = %s",
             (group_id,)
         )
-
-        print("RAW TASKS DATA:", tasks_data[:2])
 
         messages_data = fetch_supabase_data(
             """
@@ -297,14 +292,14 @@ class GroupAnalyticsDashboard(APIView):
         # 3. Convert to DataFrames
         tasks_df = pd.DataFrame(tasks_data)
 
-        print("TASKS DF COLUMNS:", tasks_df.columns)
+        if not tasks_df.empty:
+            pass
 
         #Normalization: Handle both 'assigned_to' and 'assignee_id', and ensure 'end_date' exists
         if not tasks_df.empty:
             if "assigned_to" in tasks_df.columns:
                 tasks_df["user_id"] = tasks_df["assigned_to"]
             else:
-                print("⚠️ assigned_to column missing")
                 tasks_df["user_id"] = None
             tasks_df = tasks_df.rename(columns={
                 "due_date": "end_date"
@@ -324,8 +319,6 @@ class GroupAnalyticsDashboard(APIView):
         )
 
         if messages_df.empty:
-            print("⚠️ No messages found for this group")
-
             # Create fallback structure
             messages_df = pd.DataFrame(columns=[
                 "id", "group_id", "text", "created_at", "user_id"
@@ -364,7 +357,7 @@ class GroupAnalyticsDashboard(APIView):
         )
 
         # 8. Add history (REQUIRED for frontend charts)
-        analysis_results["history"] = self.generate_history(tasks_df)
+        analysis_results["history"] = generate_chart_history(tasks_df)
 
         # 9. INTEGRATE AI RISK MATRIX LOGIC
         metrics = analysis_results.get("metrics", {})
@@ -374,6 +367,7 @@ class GroupAnalyticsDashboard(APIView):
         
             # Calculate inactivity (days since last message or task completion)
             # We can derive this from your messages_df or tasks_df
+        inactivity_days = 0
         if not messages_df.empty:
             # .dt.tz_localize(None) removes timezone if it exists, 
             # then we compare it against a naive 'now' to keep it simple.
@@ -393,12 +387,12 @@ class GroupAnalyticsDashboard(APIView):
         if model_payload:
             # We pass the loaded model/scaler directly or update predict_project_risk 
             # to handle a dictionary instead of a file path.
-            risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload)
+            risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload=model_payload)
         else:
             # Fallback if Supabase is down or model is missing
             risk_data = {"status": "Low", "score": 1, "likelihood": 1, "impact": 1}
 
-            # Update the metrics object for the frontend
+        # Update the metrics object for the frontend
         metrics.update({
             "ai_risk_level": risk_data["status"],      # "Low", "Medium", "High"
             "risk_score": risk_data["score"],          # 1-25
@@ -449,51 +443,6 @@ class GroupAnalyticsDashboard(APIView):
             })
 
         return report
-
-    # ----------------------------------------
-    # SIMPLE HISTORY GENERATOR (NEW)
-    # ----------------------------------------
-    def generate_history(self, tasks_df):
-        if tasks_df.empty or 'created_at' not in tasks_df.columns:
-            return {
-                "dates": [],
-                "completed_counts": [],
-                "total_counts": [],
-                "velocity_trend": [],
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
-            }
-
-        try:
-            df = tasks_df.copy()
-            df['created_at'] = pd.to_datetime(df['created_at'])
-
-            daily = df.groupby(df['created_at'].dt.date).size()
-
-            return {
-                "dates": [str(d) for d in daily.index],
-                "completed_counts": daily.cumsum().tolist(),
-                "total_counts": [len(df)] * len(daily),
-                "velocity_trend": daily.rolling(3).mean().fillna(0).tolist(),
-
-                # placeholders for now
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
-            }
-
-        except Exception as e:
-            print("History generation error:", e)
-            return {
-                "dates": [],
-                "completed_counts": [],
-                "total_counts": [],
-                "velocity_trend": [],
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
-            }
 
     # ----------------------------------------
     # MEMBER BANDWIDTH LOGIC

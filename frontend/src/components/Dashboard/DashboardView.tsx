@@ -380,8 +380,8 @@ export default function DashboardView() {
   const sortedTasks = useMemo(() => {
     let filtered = [...tasks];
     
-    // Filter out tasks with 100% progress (completed)
-    filtered = filtered.filter(task => task.progress_percentage !== 100);
+    // Don't filter out completed tasks - let users see them
+    // filtered = filtered.filter(task => task.progress_percentage !== 100);
     
     // Filter by search query
     if (searchQuery.trim()) {
@@ -524,9 +524,17 @@ export default function DashboardView() {
                   return (
                     <div 
                       key={task.id}
-                      className="flex items-center gap-4 p-4 rounded-lg border border-[#E2E8F0] hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
+                      className={`flex items-center gap-4 p-4 rounded-lg border border-[#E2E8F0] hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer relative ${
+                        task.progress_percentage === 100 ? 'opacity-75 bg-emerald-50 border-emerald-200' : ''
+                      }`}
                       onClick={() => navigate(`/groups?groupId=${task.group_id}&view=tasks`)}
                     >
+                      {/* Completed badge for 100% progress tasks */}
+                      {task.progress_percentage === 100 && (
+                        <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                          ✓ Completed
+                        </div>
+                      )}
                       {/* Priority indicator */}
                       <div 
                         className="w-1 h-12 rounded-full"
@@ -542,6 +550,11 @@ export default function DashboardView() {
                           {task.status === 'in-progress' && (
                             <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
                               In Progress
+                            </span>
+                          )}
+                          {task.progress_percentage === 100 && (
+                            <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+                              Completed
                             </span>
                           )}
                         </div>

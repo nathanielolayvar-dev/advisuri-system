@@ -8,6 +8,9 @@ def calculate_velocity(tasks_df):
     """
     completed = tasks_df[tasks_df['status'].str.lower() == 'completed'].copy()
     
+    # Safety: Drop rows where 'completed_at' is null to prevent NaT errors
+    completed.dropna(subset=['completed_at'], inplace=True)
+
     if len(completed) < 2:
         return {"daily_velocity": 0.0}
 

@@ -367,13 +367,20 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
       if (subError) throw subError;
 
-      // 2. Update the main task with the final score
+      // 2. Update the main task with the final score and completion metadata
+      const taskUpdatePayload: any = {
+        status: isAccepted ? 'completed' : 'in-progress',
+        final_score: taskScore === '' ? null : taskScore,
+      };
+
+      if (isAccepted) {
+        taskUpdatePayload.progress_percentage = 100;
+        taskUpdatePayload.completed_at = new Date().toISOString();
+      }
+
       const { error: taskError } = await supabase
         .from('tasks')
-        .update({
-          status: isAccepted ? 'completed' : 'in-progress',
-          final_score: taskScore === '' ? null : taskScore 
-        })
+        .update(taskUpdatePayload)
         .eq('id', selectedTask.id);
 
       if (taskError) throw taskError;
@@ -382,7 +389,9 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       setSelectedTask(prev => prev ? {
         ...prev,
         status: (isAccepted ? 'completed' : 'in-progress') as 'completed' | 'in-progress' | 'pending',
-        final_score: taskScore === '' ? undefined : (taskScore as number)
+        final_score: taskScore === '' ? undefined : (taskScore as number),
+        progress_percentage: isAccepted ? 100 : prev.progress_percentage,
+        completed_at: isAccepted ? new Date().toISOString() : prev.completed_at,
       } : null);
       
       setActiveGradingSub(null); // Close the sidebar
@@ -418,13 +427,92 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedTask) return;
+    
+    // Prepare update data
+    const updateData: any = { status: newStatus };
+    
+    // If marking as completed, set completed_at timestamp and progress_percentage to 100
+    if (newStatus === 'completed') {
+      updateData.completed_at = new Date().toISOString();
+      updateData.progress_percentage = 100;
+    }
+    
+    console.log('Updating task with data:', updateData);
+    
     const { error } = await supabase
       .from('tasks')
-      .update({ status: newStatus })
+      .update(updateData)
       .eq('id', selectedTask.id);
+    
+    if (error) {
+      console.error('Error updating task:', error);
+      alert(`Failed to update task: ${error.message}`);
+      return;
+    }
+    
+    console.log('Task updated successfully');
+    
     if (!error) {
-      setSelectedTask({ ...selectedTask, status: newStatus as 'pending' | 'in-progress' | 'completed' });
+      setSelectedTask({
+        ...selectedTask,
+        status: newStatus as 'pending' | 'in-progress' | 'completed',
+        progress_percentage: newStatus === 'completed' ? 100 : selectedTask.progress_percentage,
+        completed_at: newStatus === 'completed' ? new Date().toISOString() : selectedTask.completed_at,
+      });
+      
+      // If this is a subtask, update the parent task's progress_percentage
+      if (selectedTask.parent_task_id) {
+        await updateParentTaskProgress(selectedTask.parent_task_id);
+      }
+      
       fetchTasks();
+    }
+  };
+
+  const updateParentTaskProgress = async (parentTaskId: string) => {
+    try {
+      // Get all subtasks for this parent task
+      const { data: subtasks, error: subtasksError } = await supabase
+        .from('tasks')
+        .select('id, status')
+        .eq('parent_task_id', parentTaskId);
+
+      if (subtasksError) {
+        console.error('Error fetching subtasks:', subtasksError);
+        return;
+      }
+
+      if (!subtasks || subtasks.length === 0) return;
+
+      // Calculate progress based on completed subtasks
+      const completedSubtasks = subtasks.filter(st => st.status === 'completed').length;
+      const totalSubtasks = subtasks.length;
+      const progressPercentage = Math.round((completedSubtasks / totalSubtasks) * 100);
+
+      // Prepare update data
+      const updateData: any = { progress_percentage: progressPercentage };
+      
+      // If progress is 100%, set completed_at timestamp
+      if (progressPercentage === 100) {
+        updateData.completed_at = new Date().toISOString();
+        updateData.status = 'completed';
+      }
+
+      console.log('Updating parent task with data:', updateData);
+
+      // Update parent task's progress_percentage and potentially completed_at
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update(updateData)
+        .eq('id', parentTaskId);
+
+      if (updateError) {
+        console.error('Error updating parent task progress:', updateError);
+      } else {
+        console.log(`Updated parent task ${parentTaskId} progress to ${progressPercentage}%${progressPercentage === 100 ? ' (marked as completed)' : ''}`);
+      }
+    } catch (error) {
+      console.error('Error in updateParentTaskProgress:', error);
     }
   };
 
@@ -1112,15 +1200,23 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
         )}
 
         <div className="flex flex-col gap-4">
-          {/* First render parent tasks (tasks without parent) - filter out 100% completed */}
-          {tasks.filter(t => !t.parent_task_id && (t as any).progress_percentage !== 100).map((task) => {
+          {/* First render parent tasks (tasks without parent) - show all tasks including completed */}
+          {tasks.filter(t => !t.parent_task_id).map((task) => {
             const taskSubtasks = tasks.filter(st => st.parent_task_id === task.id);
             return (
               <div key={task.id} className="space-y-2">
                 <div
-                  className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-all cursor-pointer group"
+                  className={`bg-white border border-slate-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-all cursor-pointer group relative ${
+                    (task as any).progress_percentage === 100 ? 'opacity-75' : ''
+                  }`}
                   onClick={() => openTask(task)}
                 >
+                  {/* Completed overlay for 100% progress tasks */}
+                  {(task as any).progress_percentage === 100 && (
+                    <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                      ✓ Completed
+                    </div>
+                  )}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">

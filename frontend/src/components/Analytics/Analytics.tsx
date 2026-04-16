@@ -71,37 +71,44 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Completion Forecast (Burn-up Chart)
+  const forecastSeries = [
+    {
+      name: 'Completed',
+      data: history?.completed_counts ?? [],
+    },
+    {
+      name: 'Total',
+      data: history?.total_counts ?? [],
+    },
+  ];
+
   const forecastOptions: ApexOptions = {
     chart: { type: 'line', toolbar: { show: false } },
     stroke: { curve: 'smooth', width: [4, 2], dashArray: [0, 8] },
     colors: ['#4f46e5', '#94a3b8'],
-    xaxis: { categories: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Forecast'] },
+    xaxis: { categories: history?.dates ?? [] },
     yaxis: { title: { text: 'Tasks' } },
     legend: { position: 'top' },
     markers: { size: 4 },
     // annotation for the vertical forecast line
     annotations: {
-      xaxis: [
+      xaxis: history?.dates?.length ? [
         {
-          x: 'Forecast',
+          x: history.dates[history.dates.length - 1],
           borderColor: '#ef4444',
           label: {
-            text: 'AI Projection',
+            text: 'Today',
             style: { color: '#fff', background: '#ef4444' },
           },
         },
-      ],
+      ] : [],
     },
-    series: [
-      { name: 'Completed Tasks', data: [10, 20, 35, 45, 60] },
-      { name: 'Total Tasks', data: [15, 25, 40, 50, 65] },
-    ],
   };
 
   //Contribution Balance (Donut Chart)
   const balanceOptions: ApexOptions = {
     chart: { type: 'donut' },
-    labels: analyticsData.member_report.map((m) => m.name),
+    labels: (analyticsData.member_report ?? []).map((m) => m.name),
     colors: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'],
     plotOptions: {
       pie: {
@@ -123,38 +130,67 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Member Bandwidth (Stacked Horizontal Bar)
+  const bandwidthSeries = [
+    {
+      name: 'Used Capacity',
+      data: (analyticsData.member_report ?? []).map((m) => m.active_tasks),
+    },
+    {
+      name: 'Remaining',
+      data: (analyticsData.member_report ?? []).map((m) =>
+        Math.max(0, 15 - m.active_tasks)
+      ),
+    },
+  ];
+
   const bandwidthOptions: ApexOptions = {
     chart: { type: 'bar', stacked: true, toolbar: { show: false } },
     plotOptions: {
       bar: { horizontal: true, barHeight: '60%', borderRadius: 4 },
     },
-    xaxis: { categories: analyticsData.member_report.map((m) => m.name) },
+    xaxis: { categories: (analyticsData.member_report ?? []).map((m) => m.name) },
     colors: ['#6366f1', '#e2e8f0'],
-    series: [
-      {
-        name: 'Used Capacity',
-        data: analyticsData.member_report.map((m) => m.active_tasks),
-      },
-      {
-        name: 'Remaining',
-        data: analyticsData.member_report.map((m) =>
-          Math.max(0, 10 - m.active_tasks)
-        ),
-      },
-    ],
     legend: { position: 'top' },
   };
 
   //Milestone Buffer (Bullet Graph)
+  const bufferSeries = [
+    {
+      name: 'Days Remaining',
+      data: [Math.max(analyticsData.metrics.buffer_days, 0)],
+    },
+  ];
+
   const bufferOptions: ApexOptions = {
-    chart: { type: 'bar', height: 100, toolbar: { show: false } },
-    plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
+    chart: { type: 'bar', toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: true, barHeight: '40%' } },
     colors: [analyticsData.metrics.buffer_days < 0 ? '#ef4444' : '#10b981'],
-    xaxis: { categories: ['Days Remaining'], max: 30 }, // Assuming 30-day window
-    annotations: {
-      xaxis: [{ x: 5, borderColor: '#f59e0b', label: { text: 'Danger Zone' } }],
+    xaxis: { categories: ['Days Remaining'] },
+    states: {
+      hover: { filter: { type: 'none' } },
+      active: { filter: { type: 'none' } },
     },
   };
+
+  // Risk Matrix Logic: Build a 3x3 grid and highlight the active cell
+  const impactLabel = analyticsData.metrics.impact >= 4 ? 'High' : (analyticsData.metrics.impact === 3 ? 'Medium' : 'Low');
+  const likelihoodLabel = analyticsData.metrics.likelihood >= 4 ? 'High' : (analyticsData.metrics.likelihood === 3 ? 'Medium' : 'Low');
+  
+  const generateRiskRow = (rowLevel: string) => {
+    return ['Low', 'Medium', 'High'].map((colLevel) => {
+      const isActive = rowLevel === impactLabel && colLevel === likelihoodLabel;
+      return {
+        x: colLevel,
+        y: isActive ? analyticsData.metrics.risk_score : 0, // 0 for empty cells
+      };
+    });
+  };
+
+  const riskSeries = [
+    { name: 'High Impact', data: generateRiskRow('High') },
+    { name: 'Medium Impact', data: generateRiskRow('Medium') },
+    { name: 'Low Impact', data: generateRiskRow('Low') },
+  ];
 
   //Risk Detection (Risk Matrix Grid)
   const riskOptions: ApexOptions = {
@@ -164,7 +200,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
     },
     dataLabels: {
       enabled: true,
-      formatter: (val: number) => val.toString(), // Shows the 1-25 score inside the cell
+      formatter: (val: number) => (val > 0 ? val.toString() : ''), // Hides 0s in empty cells
       style: {
         fontSize: '14px',
         fontWeight: 'bold',
@@ -176,7 +212,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
       title: { text: 'Likelihood' },
     },
     yaxis: {
-      title: { text: 'Impact Score' },
+      title: { text: 'Impact' },
     },
     plotOptions: {
       heatmap: {
@@ -184,6 +220,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
         enableShades: false,
         colorScale: {
           ranges: [
+            { from: 0, to: 0, color: '#f8fafc', name: 'Safe' }, // Empty cells
             { from: 0, to: 5, color: '#10b981', name: 'Low' },
             { from: 6, to: 14, color: '#f59e0b', name: 'Medium' },
             { from: 15, to: 25, color: '#ef4444', name: 'High' },
@@ -194,29 +231,48 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
   };
 
   //Task Velocity (Bar + Trend Line)
+  const velocitySeries = [
+    {
+      name: 'Daily Tasks',
+      type: 'column',
+      data: (history as any)?.daily_completed ?? [],
+    },
+    {
+      name: 'Moving Average',
+      type: 'line',
+      data: history?.velocity_trend ?? [],
+    },
+  ];
+
   const velocityOptions: ApexOptions = {
-    chart: { type: 'line', toolbar: { show: false } },
+    chart: { type: 'line', toolbar: { show: false }, stacked: false },
     stroke: { width: [0, 4], curve: 'smooth' },
     colors: ['#e2e8f0', '#6366f1'],
-    series: [
-      { name: 'Daily Tasks', type: 'column', data: [2, 5, 3, 6, 4] },
-      { name: 'Moving Average', type: 'line', data: [3, 3.5, 3.8, 4, 4.2] },
-    ],
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] },
+    xaxis: { categories: history?.dates ?? [] },
+    plotOptions: {
+      bar: { columnWidth: '50%' },
+    },
   };
 
   //Workload Prediction (Stacked Area Chart)
+  const predictionSeries = [
+    {
+      name: 'Backlog',
+      data: history?.backlog_prediction ?? [],
+    },
+    {
+      name: 'Incoming',
+      data: history?.incoming_prediction ?? [],
+    },
+  ];
+
   const predictionOptions: ApexOptions = {
     chart: { type: 'area', stacked: true, toolbar: { show: false } },
     colors: ['#818cf8', '#c084fc'],
     dataLabels: { enabled: false },
     stroke: { curve: 'monotoneCubic' },
     fill: { type: 'gradient', gradient: { opacityFrom: 0.6, opacityTo: 0.1 } },
-    xaxis: { categories: ['Tomorrow', 'Day 2', 'Day 3', 'Day 4', 'Day 5'] },
-    series: [
-      { name: 'New Incoming Tasks', data: [3, 7, 4, 8, 5] },
-      { name: 'Current Backlog', data: [10, 8, 9, 5, 4] },
-    ],
+    xaxis: { categories: history?.prediction_dates ?? [] },
   };
 
   //put other charts options here for other algorithms...
@@ -270,7 +326,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={forecastOptions}
-            series={forecastOptions.series}
+            series={forecastSeries}
             type="line"
             height={320}
           />
@@ -281,19 +337,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={riskOptions}
-            series={[
-              {
-                name: 'Risk Level',
-                data: [
-                  {
-                    // The X axis matches the labels: 'Low', 'Medium', or 'High'
-                    x: analyticsData.metrics.ai_risk_level,
-                    // The Y value triggers the color scale (1-25)
-                    y: analyticsData.metrics.risk_score,
-                  },
-                ],
-              },
-            ]}
+            series={riskSeries}
             type="heatmap"
             height={320}
           />
@@ -319,7 +363,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={balanceOptions}
-            series={analyticsData.member_report.map((m) => m.active_tasks)}
+            series={(analyticsData.member_report ?? []).map((m) => m.active_tasks)}
             type="donut"
             height={250}
           />
@@ -330,7 +374,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={velocityOptions}
-            series={velocityOptions.series}
+            series={velocitySeries}
             type="line"
             height={220}
           />
@@ -345,7 +389,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={bandwidthOptions}
-            series={bandwidthOptions.series}
+            series={bandwidthSeries}
             type="bar"
             height={280}
           />
@@ -355,21 +399,8 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
             Milestone Buffer
           </h3>
           <Chart
-            options={{
-              ...bufferOptions,
-              series: [
-                {
-                  name: 'Days Remaining',
-                  data: [analyticsData.metrics.buffer_days],
-                },
-              ],
-            }}
-            series={[
-              {
-                name: 'Days Remaining',
-                data: [analyticsData.metrics.buffer_days],
-              },
-            ]}
+            options={bufferOptions}
+            series={bufferSeries}
             type="bar"
             height={280}
           />
@@ -380,7 +411,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
           </h3>
           <Chart
             options={predictionOptions}
-            series={predictionOptions.series}
+            series={predictionSeries}
             type="area"
             height={280}
           />

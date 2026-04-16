@@ -264,7 +264,15 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
               const isTaskOverdue = isOverdue(task.due_date) && task.status !== 'completed';
               
               return (
-                <div key={task.id} className="flex border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <div key={task.id} className={`flex border-b border-slate-100 hover:bg-slate-50 transition-colors relative ${
+                  task.progress_percentage === 100 ? 'opacity-75 bg-emerald-50' : ''
+                }`}>
+                  {/* Completed badge for 100% progress tasks */}
+                  {task.progress_percentage === 100 && (
+                    <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold z-10">
+                      ✓ Completed
+                    </div>
+                  )}
                   <div className="w-56 flex-shrink-0 px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div 
@@ -281,6 +289,11 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
                           }`}>
                             {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
                           </span>
+                          {task.progress_percentage === 100 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                              Completed
+                            </span>
+                          )}
                           <span className="text-xs text-slate-400">{task.progress_percentage || 0}%</span>
                         </div>
                       </div>
