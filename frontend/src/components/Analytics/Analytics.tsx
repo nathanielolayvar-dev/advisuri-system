@@ -221,7 +221,7 @@ export const AnalyticsView = ({ analyticsData }: AnalyticsViewProps) => {
         colorScale: {
           ranges: [
             { from: 0, to: 0, color: '#f8fafc', name: 'Safe' }, // Empty cells
-            { from: 0, to: 5, color: '#10b981', name: 'Low' },
+            { from: 1, to: 5, color: '#10b981', name: 'Low' },
             { from: 6, to: 14, color: '#f59e0b', name: 'Medium' },
             { from: 15, to: 25, color: '#ef4444', name: 'High' },
           ],

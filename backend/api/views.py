@@ -276,7 +276,7 @@ class GroupAnalyticsDashboard(APIView):
 
         # 2. Fetch data from DB
         tasks_data = fetch_supabase_data(
-            "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, completed_at, created_at FROM tasks WHERE group_id = %s",
+            "SELECT id, group_id, assigned_to, progress_percentage, due_date, status, priority, completed_at, created_at FROM tasks WHERE group_id = %s",
             (group_id,)
         )
 
@@ -396,8 +396,8 @@ class GroupAnalyticsDashboard(APIView):
         metrics.update({
             "ai_risk_level": risk_data["status"],      # "Low", "Medium", "High"
             "risk_score": risk_data["score"],          # 1-25
-            "risk_likelihood": risk_data["likelihood"],# 1-5 (X-axis)
-            "risk_impact": risk_data["impact"],        # 1-5 (Y-axis)
+            "likelihood": risk_data["likelihood"],     # 1-5 (X-axis)
+            "impact": risk_data["impact"],             # 1-5 (Y-axis)
         })
 
         analysis_results["metrics"] = metrics

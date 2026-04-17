@@ -10,9 +10,22 @@ def predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload
     # If tasks_df has a 'complexity' column (1-5), we average it.
     if 'complexity' in tasks_df.columns:
         avg_complexity = tasks_df['complexity'].mean()
+    elif 'priority' in tasks_df.columns:
+        # Map priority to numerical values (scaled up to 5)
+        priority_map = {'low': 2.0, 'medium': 3.0, 'high': 5.0}
+        
+        # Consider the priority of active tasks to accurately determine risk impact
+        active_tasks = tasks_df[tasks_df['status'] != 'completed']
+        target_df = active_tasks if not active_tasks.empty else tasks_df
+        
+        priorities = target_df['priority'].fillna('medium').astype(str).str.lower()
+        mapped_priorities = priorities.map(priority_map).fillna(3.0)
+        
+        # Use max to ensure a critical/high-priority task accurately flags the project impact as high
+        avg_complexity = mapped_priorities.max() if not mapped_priorities.empty else 1
     else:
         # Fallback: Higher task volume = Higher Impact on the project
-        avg_complexity = min(5, (total_tasks / 2)) 
+        avg_complexity = min(5, max(1, (total_tasks / 10))) 
 
     # 2. Prediction using the passed model payload
     risk_label = "Low"
@@ -37,7 +50,7 @@ def predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload
     likelihood_score = min(5, max(1, int(overdue_ratio * 5) + 1))
     
     # Impact = how much this failure matters (based on task weight/volume)
-    impact_score = min(5, max(1, int(avg_complexity)))
+    impact_score = min(5, max(1, round(avg_complexity)))
 
     return {
         "status": risk_label,
