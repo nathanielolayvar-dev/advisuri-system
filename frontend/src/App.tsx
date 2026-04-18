@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashboardPage from './pages/DashboardPage';
@@ -23,6 +23,51 @@ function Logout(): React.JSX.Element {
 function RegisterAndLogout(): React.JSX.Element {
   localStorage.clear();
   return <Register />;
+}
+
+function AuthCallback(): React.JSX.Element {
+  const navigate = useNavigate();
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const handleAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth callback error:', error);
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        if (session) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/login', { replace: true });
+        }
+      } catch (err) {
+        console.error('Unexpected error in auth callback:', err);
+        navigate('/login', { replace: true });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handleAuth();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#64748B]">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // Wrapper component to redirect admin users away from certain routes
@@ -137,7 +182,7 @@ function App(): React.JSX.Element {
         <UserProfileProvider>
           <IdleTimerWrapper>
             <Routes>
-            <Route path="/" element={<Navigate to="/admin"/>} />
+            <Route path="/" element={<Navigate to="/dashboard"/>} />
             
             <Route
               path="/dashboard"
@@ -184,6 +229,7 @@ function App(): React.JSX.Element {
             />
 
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/logout" element={<Logout />} />
             <Route path="/register" element={<RegisterAndLogout />} />
 

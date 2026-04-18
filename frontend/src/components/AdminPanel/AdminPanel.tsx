@@ -18,9 +18,13 @@ import {
   Loader2,
   RefreshCw,
   X,
+  Copy,
+  Wand2,
+  Check,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
+import api from '../../api';
 import { updateUserRole } from '../../services/userService';
 
 // ============================================================================
@@ -109,7 +113,11 @@ export default function AdminPanel() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'student'>('student');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const generatedPasswordsRef = useRef<Set<string>>(new Set());
   const [addUserLoading, setAddUserLoading] = useState(false);
+  const [showCreateUserConfirmModal, setShowCreateUserConfirmModal] = useState(false);
 
   // Notification form state
   const [notifType, setNotifType] = useState<'Emergency' | 'Announcement' | 'Newsletter'>('Announcement');
@@ -339,55 +347,142 @@ export default function AdminPanel() {
     setNotifSending(false);
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const funnyFirstNames = ['Boyong', 'Marites', 'Junjun', 'Bembem', 'Totoy', 'Inday', 'Dodong', 'Charing', 'Bebang', 'Onyok', 'Pipay', 'Kiko', 'Neneng', 'Badong', 'Tintin'];
+  const funnyLastNames = ['Bananacue', 'Mangga', 'Jollibee', 'Bibingka', 'Taho', 'Isaw', 'Dinuguan', 'Chicharon', 'Buko', 'Okoy', 'Palabok', 'KwekKwek', 'Nata', 'Balut', 'Turon'];
+
+  const generateAdminPassword = () => {
+    const maxAttempts = 200;
+    let attempts = 0;
+    let generated = '';
+    let uniqueFound = false;
+
+    while (attempts < maxAttempts) {
+      const first = funnyFirstNames[Math.floor(Math.random() * funnyFirstNames.length)];
+      const last = funnyLastNames[Math.floor(Math.random() * funnyLastNames.length)];
+      const randomNumber = Math.floor(1000 + Math.random() * 9000);
+      generated = `${first}${last}${randomNumber}`;
+
+      if (!generatedPasswordsRef.current.has(generated)) {
+        generatedPasswordsRef.current.add(generated);
+        uniqueFound = true;
+        break;
+      }
+      attempts += 1;
+    }
+
+    if (!uniqueFound) {
+      generated = `UserPass${Date.now()}`;
+      generatedPasswordsRef.current.add(generated);
+    }
+
+    setNewUserPassword(generated);
+    setCopiedPassword(false);
+  };
+
+  const handleCopyPassword = async () => {
+    if (!newUserPassword) return;
+    try {
+      await navigator.clipboard.writeText(newUserPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 1500);
+    } catch (error) {
+      console.error('Failed to copy password:', error);
+      alert('Failed to copy password. Please copy it manually.');
+    }
+  };
+
+  const handleAddUser = async () => {
     if (!newUserEmail.trim() || !newUserFullName.trim()) return;
+    if (!newUserPassword.trim()) {
+      alert('Generate a password first before confirming the user.');
+      return;
+    }
     setAddUserLoading(true);
 
     try {
-      // Use Supabase's signUp function to create user
-      // This sends a confirmation email to the user
+      const email = newUserEmail.trim().toLowerCase();
+      const fullName = newUserFullName.trim();
+      const password = newUserPassword.trim();
+      
+      if (!password) {
+        alert('Please generate a password first');
+        return;
+      }
+      
+      // Sign up with the password from the form
       const { data, error } = await supabase.auth.signUp({
-        email: newUserEmail.trim(),
-        password: Math.random().toString(36).slice(-12), // Temporary random password
+        email: email,
+        password: password,
         options: {
           data: {
-            full_name: newUserFullName.trim(),
-          }
+            full_name: fullName,
+            role: newUserRole,
+          },
+          emailRedirectTo: window.location.origin + '/dashboard'
         }
       });
-
-      if (error) throw error;
-      if (!data.user) throw new Error('Failed to create user');
-
-      // Update user role in users table
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ role: newUserRole })
-        .eq('user_id', data.user.id);
-
-      if (updateError) {
-        console.warn('Could not update role in users table:', updateError);
+      
+      if (error) {
+        console.error('Signup error:', error);
+        alert('Error: ' + error.message);
+        return;
       }
+      
+      console.log('Signup response:', data);
+      
+      // Don't sign in - just stay as admin
+      if (data.user && data.user.id) {
+        // Add to users table
+        await supabase.from('users').insert({
+          user_id: data.user.id,
+          email: email,
+          full_name: fullName,
+          role: newUserRole,
+          is_active: true,
+          status: 'Active',
+        });
+        
+        alert(`User created: ${email}\nPassword: ${password}\n\nUser can now login!`);
+      } else if (data.session === null) {
+        // Confirmation email was sent
+        alert(`Confirmation email sent to ${email}!\n\nUser must click link in email to activate.`);
+      } else {
+        alert('User created!');
+      }
+      
+      alert(`User created! Invitation sent to ${email}`);
+      
+      setNewUserEmail('');
+      setNewUserFullName('');
+      setNewUserRole('student');
+      setNewUserPassword('');
+      setShowAddUserModal(false);
+      fetchUsers();
+      fetchStats();
+      return;
 
-      // Log audit action
       await logAuditAction(
         `Created new user with role ${newUserRole}`,
         `User: ${newUserFullName} (${newUserEmail})`
       );
 
-      // Reset form and refresh
+      const createdEmail = response?.data?.email || newUserEmail;
+
       setNewUserEmail('');
       setNewUserFullName('');
       setNewUserRole('student');
+      setNewUserPassword('');
+      setCopiedPassword(false);
       setShowAddUserModal(false);
+      setShowCreateUserConfirmModal(false);
       fetchUsers();
       fetchStats();
-      
-      alert('User created successfully! A confirmation email has been sent to ' + newUserEmail);
+
+      alert(`User created successfully. Login password was generated and sent to ${createdEmail}.`);
     } catch (err: any) {
       console.error('Error adding user:', err);
-      alert(err.message || 'Failed to add user');
+      const apiMessage = err?.response?.data?.detail;
+      alert(apiMessage || err.message || 'Failed to add user');
     } finally {
       setAddUserLoading(false);
     }
@@ -970,6 +1065,50 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* Create User Confirmation Modal */}
+      {showCreateUserConfirmModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#1E293B] to-[#334155] px-6 py-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Confirm Account Creation
+              </h3>
+              <p className="text-slate-200 text-sm mt-1">The selected password below will be emailed to the user automatically.</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-2">
+                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Full Name:</span> {newUserFullName}</p>
+                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Email:</span> {newUserEmail}</p>
+                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Role:</span> {newUserRole}</p>
+                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Password:</span> {newUserPassword || 'Not generated'}</p>
+              </div>
+              <p className="text-sm text-[#64748B]">
+                The user can immediately sign in with the emailed password.
+              </p>
+            </div>
+            <div className="flex gap-3 px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0]">
+              <button
+                type="button"
+                onClick={() => setShowCreateUserConfirmModal(false)}
+                className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleAddUser}
+                disabled={addUserLoading || !newUserPassword}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+              >
+                {addUserLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {addUserLoading ? 'Creating...' : 'Create and Email Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add User Modal */}
       {showAddUserModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
@@ -980,13 +1119,16 @@ export default function AdminPanel() {
                 Add New User
               </h3>
               <button
-                onClick={() => setShowAddUserModal(false)}
+                onClick={() => {
+                  setShowAddUserModal(false);
+                  setShowCreateUserConfirmModal(false);
+                }}
                 className="p-1 rounded-lg hover:bg-white/20 transition-colors"
               >
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
-            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); setShowCreateUserConfirmModal(true); }} className="p-6 space-y-4">
               <div>
                 <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Full Name</label>
                 <input
@@ -1009,33 +1151,66 @@ export default function AdminPanel() {
                   className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                 />
               </div>
-              <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Role</label>
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'teacher' | 'student')}
-                  className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <option value="student">Student</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddUserModal(false)}
-                  className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
-                >
+               <div>
+                 <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Role</label>
+                 <select
+                   value={newUserRole}
+                   onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'teacher' | 'student')}
+                   className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                 >
+                   <option value="student">Student</option>
+                   <option value="teacher">Teacher</option>
+                   <option value="admin">Admin</option>
+                 </select>
+               </div>
+               <div>
+                 <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Generated Password</label>
+                 <div className="mt-1 flex items-center gap-2">
+                   <input
+                     type="text"
+                     value={newUserPassword}
+                     readOnly
+                     placeholder="Click Generate Password"
+                     className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm bg-[#F8FAFC] text-[#1E293B]"
+                   />
+                   <button
+                     type="button"
+                     onClick={generateAdminPassword}
+                     className="p-2 bg-[#EEF2FF] text-[#1D4ED8] rounded-lg hover:bg-[#E0E7FF] transition-colors"
+                     title="Generate password"
+                   >
+                     <Wand2 className="w-4 h-4" />
+                   </button>
+                   <button
+                     type="button"
+                     onClick={handleCopyPassword}
+                     disabled={!newUserPassword}
+                     className="p-2 bg-[#F1F5F9] text-[#334155] rounded-lg hover:bg-[#E2E8F0] transition-colors disabled:opacity-50"
+                     title="Copy password"
+                   >
+                     {copiedPassword ? <Check className="w-4 h-4 text-[#10B981]" /> : <Copy className="w-4 h-4" />}
+                   </button>
+                 </div>
+                 <p className="mt-1 text-xs text-[#64748B]">Generate and copy this password before confirming.</p>
+               </div>
+               <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddUserModal(false);
+                      setShowCreateUserConfirmModal(false);
+                    }}
+                    className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
+                  >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={addUserLoading}
+                  disabled={addUserLoading || !newUserPassword}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
                 >
-                  {addUserLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                  {addUserLoading ? 'Creating...' : 'Create User'}
+                  <UserPlus className="w-4 h-4" />
+                  Confirm Details
                 </button>
               </div>
             </form>

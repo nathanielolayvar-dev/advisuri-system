@@ -81,11 +81,14 @@ export function useUser(): UseUserReturn {
 
         // If user doesn't exist in users table yet, create a basic profile from auth
         if (userError.code === 'PGRST116') {
+          const appMeta = session.user.app_metadata || {};
+          const userMeta = session.user.user_metadata || {};
+          const roleFromMeta = appMeta.role || userMeta.role || 'student';
           const basicUser: SupabaseUser = {
             user_id: authId,
-            full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Unknown',
+            full_name: userMeta.full_name || session.user.email?.split('@')[0] || 'Unknown',
             email: session.user.email || '',
-            role: 'student',
+            role: roleFromMeta,
             is_active: true,
             created_at: new Date().toISOString(),
             profile_picture_url: null,
