@@ -1,9 +1,17 @@
 import axios from 'axios';
 import { supabase } from './supabaseClient';
 
+//  Check if we are running locally or on Vercel
+const isLocal =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1';
+
 // Create Axios instance - don't use baseURL since we're using Vite proxy
+// 2. Set the baseURL dynamically
+// Locally: http://127.0.0.1:8000/api
+// Vercel: /_backend/api (as defined in your vercel.json)
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000/api", // Will use relative URLs which go through Vite proxy
+  baseURL: isLocal ? 'http://127.0.0.1:8000/api' : '/_backend/api',
 });
 
 // Update Interceptor to use Supabase Session

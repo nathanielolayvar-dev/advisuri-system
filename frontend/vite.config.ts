@@ -4,23 +4,22 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   // Add this block:
   optimizeDeps: {
-    include: ['agora-rtc-react', 'agora-rtc-sdk-ng', 'react-apexcharts', 'apexcharts'],
+    include: [
+      'agora-rtc-react',
+      'agora-rtc-sdk-ng',
+      'react-apexcharts',
+      'apexcharts',
+    ],
   },
   server: {
-    host: true, 
-    watch: {
-      usePolling: true, 
-    },
     proxy: {
-      '/api': {
-        target: 'http://backend:8000',
+      '/_backend': {
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/_backend/, ''),
       },
     },
   },
