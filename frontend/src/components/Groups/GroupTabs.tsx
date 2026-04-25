@@ -24,7 +24,6 @@ export const GroupTabs = ({
   loading = false,
   isStaff = false,
 }: GroupTabsProps) => {
-
   // Helper to safely get an initial
   const getMemberInitial = (member: any) => {
     if (typeof member === 'object' && member.username) {
@@ -35,8 +34,18 @@ export const GroupTabs = ({
 
   // Get avatar color based on username hash
   const getAvatarColor = (username: string) => {
-    const colors = ['#2563EB', '#7C3AED', '#DB2777', '#059669', '#EA580C', '#0891B2', '#4F46E5'];
-    const hash = username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      '#2563EB',
+      '#7C3AED',
+      '#DB2777',
+      '#059669',
+      '#EA580C',
+      '#0891B2',
+      '#4F46E5',
+    ];
+    const hash = username
+      .split('')
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[hash % colors.length];
   };
 
@@ -50,8 +59,12 @@ export const GroupTabs = ({
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-800 tracking-tight">Groups</h1>
-              <p className="text-xs text-slate-400">{groups.length} workspaces</p>
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight">
+                Groups
+              </h1>
+              <p className="text-xs text-slate-400">
+                {groups.length} workspaces
+              </p>
             </div>
           </div>
         </div>
@@ -71,13 +84,13 @@ export const GroupTabs = ({
         )}
 
         {isStaff && (
-        <button 
-          onClick={onOpenModal} 
-          className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-100 transition-all active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Group</span>
-        </button>
+          <button
+            onClick={onOpenModal}
+            className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-100 transition-all active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Group</span>
+          </button>
         )}
       </div>
 
@@ -92,12 +105,12 @@ export const GroupTabs = ({
           <div className="text-center py-8 px-4">
             <p className="text-sm text-slate-400 mb-3">No groups found</p>
             {isStaff && (
-            <button
-              onClick={onOpenModal}
-              className="text-sm text-blue-600 font-medium hover:text-blue-700"
-            >
-              Create your first group
-            </button>
+              <button
+                onClick={onOpenModal}
+                className="text-sm text-blue-600 font-medium hover:text-blue-700"
+              >
+                Create your first group
+              </button>
             )}
           </div>
         ) : (
@@ -109,40 +122,48 @@ export const GroupTabs = ({
             return (
               <button
                 key={group.id}
-                onClick={() => onSelectGroup(group.id)}
+                onClick={() => group.id && onSelectGroup(group.id)}
                 className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all relative border ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-sm' 
+                  isActive
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-sm'
                     : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-100'
                 }`}
               >
                 {/* Group Icon */}
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
-                  isActive 
-                    ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
-                    : 'bg-gradient-to-br from-slate-400 to-slate-500'
-                }`}>
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
+                    isActive
+                      ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                      : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                  }`}
+                >
                   {group.name?.charAt(0).toUpperCase() || 'G'}
                 </div>
 
                 {/* Group Info */}
                 <div className="flex-1 text-left overflow-hidden">
-                  <span className={`text-sm truncate block ${isActive ? 'font-bold text-blue-900' : 'font-semibold text-slate-700'}`}>
+                  <span
+                    className={`text-sm truncate block ${isActive ? 'font-bold text-blue-900' : 'font-semibold text-slate-700'}`}
+                  >
                     {group.name}
                   </span>
                   {group.course && (
-                    <span className="text-xs text-slate-400 truncate block">{group.course}</span>
+                    <span className="text-xs text-slate-400 truncate block">
+                      {group.course}
+                    </span>
                   )}
-                  
+
                   {/* Member avatars */}
                   {memberCount > 0 && (
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex -space-x-2">
                         {displayMembers.map((member, i) => (
-                          <div 
+                          <div
                             key={member.id || i}
                             className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-[9px] text-white font-bold"
-                            style={{ backgroundColor: getAvatarColor(member.username) }}
+                            style={{
+                              backgroundColor: getAvatarColor(member.username),
+                            }}
                           >
                             {getMemberInitial(member)}
                           </div>
@@ -153,7 +174,9 @@ export const GroupTabs = ({
                           </div>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-400">{memberCount}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {memberCount}
+                      </span>
                     </div>
                   )}
                 </div>

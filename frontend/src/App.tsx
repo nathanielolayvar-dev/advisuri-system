@@ -25,7 +25,7 @@ function RegisterAndLogout(): React.JSX.Element {
   return <Register />;
 }
 
-function AuthCallback(): React.JSX.Element {
+function AuthCallback(): React.ReactNode {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
 

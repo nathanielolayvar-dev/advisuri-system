@@ -81,7 +81,9 @@ interface AdminStats {
 // ============================================================================
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'users' | 'notifications' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<
+    'users' | 'notifications' | 'audit'
+  >('users');
 
   const [auditStartDate, setAuditStartDate] = useState<string>('');
   const [auditEndDate, setAuditEndDate] = useState<string>('');
@@ -105,31 +107,44 @@ export default function AdminPanel() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
-  const [newRole, setNewRole] = useState<'admin' | 'teacher' | 'student'>('student');
+  const [newRole, setNewRole] = useState<'admin' | 'teacher' | 'student'>(
+    'student'
+  );
   const [roleUpdating, setRoleUpdating] = useState(false);
 
   // Add User Modal state
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'teacher' | 'student'>('student');
+  const [newUserRole, setNewUserRole] = useState<
+    'admin' | 'teacher' | 'student'
+  >('student');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [copiedPassword, setCopiedPassword] = useState(false);
   const generatedPasswordsRef = useRef<Set<string>>(new Set());
   const [addUserLoading, setAddUserLoading] = useState(false);
-  const [showCreateUserConfirmModal, setShowCreateUserConfirmModal] = useState(false);
+  const [showCreateUserConfirmModal, setShowCreateUserConfirmModal] =
+    useState(false);
 
   // Notification form state
-  const [notifType, setNotifType] = useState<'Emergency' | 'Announcement' | 'Newsletter'>('Announcement');
+  const [notifType, setNotifType] = useState<
+    'Emergency' | 'Announcement' | 'Newsletter'
+  >('Announcement');
   const [notifSubject, setNotifSubject] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
   const [notifSending, setNotifSending] = useState(false);
 
   // Helper to log audit events directly into the new table
-  const logAuditAction = async (action: string, resource: string, status: string = 'Success') => {
+  const logAuditAction = async (
+    action: string,
+    resource: string,
+    status: string = 'Success'
+  ) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       // Get the current user's full name for more detailed logging
       let performedBy = 'System';
       if (user) {
@@ -140,14 +155,14 @@ export default function AdminPanel() {
           .single();
         performedBy = userData?.full_name || user.email || 'Admin';
       }
-      
+
       const { error } = await supabase.from('audit_logs').insert({
         user_id: user?.id,
         action: action,
         resource: resource,
-        status: status
+        status: status,
       });
-      
+
       if (error) {
         console.error('Failed to log audit action:', error);
       }
@@ -163,14 +178,18 @@ export default function AdminPanel() {
   const fetchStats = useCallback(async () => {
     const [usersRes, scheduleRes] = await Promise.all([
       supabase.from('users').select('user_id, role, status, is_active'),
-      supabase.from('master_schedule').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('master_schedule')
+        .select('id', { count: 'exact', head: true }),
     ]);
 
     if (usersRes.data) {
       const all = usersRes.data;
       setStats({
         totalUsers: all.length,
-        activeUsers: all.filter((u: any) => u.status === 'Active' || u.is_active).length,
+        activeUsers: all.filter(
+          (u: any) => u.status === 'Active' || u.is_active
+        ).length,
         teacherCount: all.filter((u: any) => u.role === 'teacher').length,
         studentCount: all.filter((u: any) => u.role === 'student').length,
         suspendedCount: all.filter((u: any) => u.status === 'Suspended').length,
@@ -183,7 +202,9 @@ export default function AdminPanel() {
     setLoading(true);
     const { data, error } = await supabase
       .from('users')
-      .select('user_id, full_name, email, role, is_active, status, last_login, created_at, profile_picture_url')
+      .select(
+        'user_id, full_name, email, role, is_active, status, last_login, created_at, profile_picture_url'
+      )
       .order('created_at', { ascending: false });
 
     if (!error && data) setUsers(data as AdminUser[]);
@@ -192,31 +213,42 @@ export default function AdminPanel() {
 
   const toLocalIso = (dateStr: string, endOfDay = false) => {
     const [year, month, day] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    const date = new Date(
+      year,
+      month - 1,
+      day,
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0
+    );
     return date.toISOString();
   };
 
-  const fetchAuditLogs = useCallback(async (startDate?: string, endDate?: string) => {
-    setLoading(true);
+  const fetchAuditLogs = useCallback(
+    async (startDate?: string, endDate?: string) => {
+      setLoading(true);
 
-    let query = supabase
-      .from('audit_logs')
-      .select('*, users ( full_name )')
-      .order('timestamp', { ascending: false })
-      .limit(50);
+      let query = supabase
+        .from('audit_logs')
+        .select('*, users ( full_name )')
+        .order('timestamp', { ascending: false })
+        .limit(50);
 
-    if (startDate) {
-      query = query.gte('timestamp', toLocalIso(startDate, false));
-    }
-    if (endDate) {
-      query = query.lte('timestamp', toLocalIso(endDate, true));
-    }
+      if (startDate) {
+        query = query.gte('timestamp', toLocalIso(startDate, false));
+      }
+      if (endDate) {
+        query = query.lte('timestamp', toLocalIso(endDate, true));
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (!error && data) setAuditLogs(data as AuditLog[]);
-    setLoading(false);
-  }, []);
+      if (!error && data) setAuditLogs(data as AuditLog[]);
+      setLoading(false);
+    },
+    []
+  );
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -241,31 +273,52 @@ export default function AdminPanel() {
   // Actions
   // ============================================================================
 
-  const handleToggleUserStatus = async (userId: string, currentStatus: string, currentIsActive: boolean, userName: string) => {
-    const newStatus = (currentStatus === 'Active' || currentIsActive) ? 'Suspended' : 'Active';
-    
+  const handleToggleUserStatus = async (
+    userId: string,
+    currentStatus: string,
+    currentIsActive: boolean,
+    userName: string
+  ) => {
+    const newStatus =
+      currentStatus === 'Active' || currentIsActive ? 'Suspended' : 'Active';
+
     const { error } = await supabase
       .from('users')
       .update({ status: newStatus, is_active: newStatus === 'Active' })
       .eq('user_id', userId);
 
     if (!error) {
-      setUsers(prev => prev.map(u =>
-        u.user_id === userId ? { ...u, status: newStatus, is_active: newStatus === 'Active' } : u
-      ));
-      
-      await logAuditAction(`Changed user status to ${newStatus}`, `User: ${userName}`);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.user_id === userId
+            ? { ...u, status: newStatus, is_active: newStatus === 'Active' }
+            : u
+        )
+      );
+
+      await logAuditAction(
+        `Changed user status to ${newStatus}`,
+        `User: ${userName}`
+      );
       fetchStats();
     }
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to delete ${userName}? This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${userName}? This cannot be undone.`
+      )
+    )
+      return;
 
-    const { error } = await supabase.from('users').delete().eq('user_id', userId);
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('user_id', userId);
 
     if (!error) {
-      setUsers(prev => prev.filter(u => u.user_id !== userId));
+      setUsers((prev) => prev.filter((u) => u.user_id !== userId));
       await logAuditAction('Deleted user', `User: ${userName}`);
       fetchStats();
     }
@@ -282,17 +335,21 @@ export default function AdminPanel() {
     setRoleUpdating(true);
 
     console.log('Changing role for user:', selectedUser.user_id, 'to', newRole);
-    
+
     const result = await updateUserRole(selectedUser.user_id, newRole);
     console.log('Role update result:', result);
 
     if (!result.error && result.data) {
-      setUsers(prev => prev.map(u =>
-        u.user_id === selectedUser.user_id ? { ...u, role: newRole } : u
-      ));
-      
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.user_id === selectedUser.user_id ? { ...u, role: newRole } : u
+        )
+      );
+
       // Get current admin's name for detailed logging
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       let adminName = 'Admin';
       if (currentUser) {
         const { data: adminData } = await supabase
@@ -302,9 +359,16 @@ export default function AdminPanel() {
           .single();
         adminName = adminData?.full_name || currentUser.email || 'Admin';
       }
-      
-      console.log('Logging audit action - Admin:', adminName, 'changed', selectedUser.full_name, 'to', newRole);
-      
+
+      console.log(
+        'Logging audit action - Admin:',
+        adminName,
+        'changed',
+        selectedUser.full_name,
+        'to',
+        newRole
+      );
+
       await logAuditAction(
         `Changed role from ${selectedUser.role || 'student'} to ${newRole}`,
         `User: ${selectedUser.full_name} (${selectedUser.email}) | Performed by: ${adminName}`
@@ -314,7 +378,9 @@ export default function AdminPanel() {
       fetchStats();
     } else {
       console.error('Failed to update role:', result.error);
-      alert('Failed to update role: ' + (result.error?.message || 'Unknown error'));
+      alert(
+        'Failed to update role: ' + (result.error?.message || 'Unknown error')
+      );
     }
     setRoleUpdating(false);
   };
@@ -324,21 +390,31 @@ export default function AdminPanel() {
     if (!notifSubject.trim() || !notifMessage.trim()) return;
     setNotifSending(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setNotifSending(false); return; }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setNotifSending(false);
+      return;
+    }
 
-    const { error } = await supabase.from('system_notifications').insert([{
-      notification_type: notifType,
-      subject: notifSubject.trim(),
-      message: notifMessage.trim(),
-      sent_by: user.id,
-      delivery_method: 'Email + In-App',
-      recipient_count: stats.totalUsers,
-      status: 'Sent'
-    }]);
+    const { error } = await supabase.from('system_notifications').insert([
+      {
+        notification_type: notifType,
+        subject: notifSubject.trim(),
+        message: notifMessage.trim(),
+        sent_by: user.id,
+        delivery_method: 'Email + In-App',
+        recipient_count: stats.totalUsers,
+        status: 'Sent',
+      },
+    ]);
 
     if (!error) {
-      await logAuditAction('Sent mass notification', `${notifType}: ${notifSubject}`);
+      await logAuditAction(
+        'Sent mass notification',
+        `${notifType}: ${notifSubject}`
+      );
       setNotifSubject('');
       setNotifMessage('');
       setShowNotificationModal(false);
@@ -347,8 +423,40 @@ export default function AdminPanel() {
     setNotifSending(false);
   };
 
-  const funnyFirstNames = ['Boyong', 'Marites', 'Junjun', 'Bembem', 'Totoy', 'Inday', 'Dodong', 'Charing', 'Bebang', 'Onyok', 'Pipay', 'Kiko', 'Neneng', 'Badong', 'Tintin'];
-  const funnyLastNames = ['Bananacue', 'Mangga', 'Jollibee', 'Bibingka', 'Taho', 'Isaw', 'Dinuguan', 'Chicharon', 'Buko', 'Okoy', 'Palabok', 'KwekKwek', 'Nata', 'Balut', 'Turon'];
+  const funnyFirstNames = [
+    'Boyong',
+    'Marites',
+    'Junjun',
+    'Bembem',
+    'Totoy',
+    'Inday',
+    'Dodong',
+    'Charing',
+    'Bebang',
+    'Onyok',
+    'Pipay',
+    'Kiko',
+    'Neneng',
+    'Badong',
+    'Tintin',
+  ];
+  const funnyLastNames = [
+    'Bananacue',
+    'Mangga',
+    'Jollibee',
+    'Bibingka',
+    'Taho',
+    'Isaw',
+    'Dinuguan',
+    'Chicharon',
+    'Buko',
+    'Okoy',
+    'Palabok',
+    'KwekKwek',
+    'Nata',
+    'Balut',
+    'Turon',
+  ];
 
   const generateAdminPassword = () => {
     const maxAttempts = 200;
@@ -357,8 +465,10 @@ export default function AdminPanel() {
     let uniqueFound = false;
 
     while (attempts < maxAttempts) {
-      const first = funnyFirstNames[Math.floor(Math.random() * funnyFirstNames.length)];
-      const last = funnyLastNames[Math.floor(Math.random() * funnyLastNames.length)];
+      const first =
+        funnyFirstNames[Math.floor(Math.random() * funnyFirstNames.length)];
+      const last =
+        funnyLastNames[Math.floor(Math.random() * funnyLastNames.length)];
       const randomNumber = Math.floor(1000 + Math.random() * 9000);
       generated = `${first}${last}${randomNumber}`;
 
@@ -403,12 +513,12 @@ export default function AdminPanel() {
       const email = newUserEmail.trim().toLowerCase();
       const fullName = newUserFullName.trim();
       const password = newUserPassword.trim();
-      
+
       if (!password) {
         alert('Please generate a password first');
         return;
       }
-      
+
       // Sign up with the password from the form
       const { data, error } = await supabase.auth.signUp({
         email: email,
@@ -418,18 +528,18 @@ export default function AdminPanel() {
             full_name: fullName,
             role: newUserRole,
           },
-          emailRedirectTo: window.location.origin + '/dashboard'
-        }
+          emailRedirectTo: window.location.origin + '/dashboard',
+        },
       });
-      
+
       if (error) {
         console.error('Signup error:', error);
         alert('Error: ' + error.message);
         return;
       }
-      
+
       console.log('Signup response:', data);
-      
+
       // Don't sign in - just stay as admin
       if (data.user && data.user.id) {
         // Add to users table
@@ -441,32 +551,23 @@ export default function AdminPanel() {
           is_active: true,
           status: 'Active',
         });
-        
-        alert(`User created: ${email}\nPassword: ${password}\n\nUser can now login!`);
+
+        alert(
+          `User created: ${email}\nPassword: ${password}\n\nUser can now login!`
+        );
       } else if (data.session === null) {
         // Confirmation email was sent
-        alert(`Confirmation email sent to ${email}!\n\nUser must click link in email to activate.`);
+        alert(
+          `Confirmation email sent to ${email}!\n\nUser must click link in email to activate.`
+        );
       } else {
         alert('User created!');
       }
-      
-      alert(`User created! Invitation sent to ${email}`);
-      
-      setNewUserEmail('');
-      setNewUserFullName('');
-      setNewUserRole('student');
-      setNewUserPassword('');
-      setShowAddUserModal(false);
-      fetchUsers();
-      fetchStats();
-      return;
 
       await logAuditAction(
         `Created new user with role ${newUserRole}`,
-        `User: ${newUserFullName} (${newUserEmail})`
+        `User: ${fullName} (${email})`
       );
-
-      const createdEmail = response?.data?.email || newUserEmail;
 
       setNewUserEmail('');
       setNewUserFullName('');
@@ -477,8 +578,6 @@ export default function AdminPanel() {
       setShowCreateUserConfirmModal(false);
       fetchUsers();
       fetchStats();
-
-      alert(`User created successfully. Login password was generated and sent to ${createdEmail}.`);
     } catch (err: any) {
       console.error('Error adding user:', err);
       const apiMessage = err?.response?.data?.detail;
@@ -492,15 +591,21 @@ export default function AdminPanel() {
   // Filtered users
   // ============================================================================
 
-  const filteredUsers = users.filter(u =>
-    u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  const filteredUsers = users.filter(
+    (u) =>
+      u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
   // Helper for Profile Picture Generation
   const getInitials = (name: string) => {
     if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
   };
 
   // ============================================================================
@@ -512,8 +617,12 @@ export default function AdminPanel() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#1E293B]">Admin Control Panel</h2>
-          <p className="text-[#64748B] mt-1">Comprehensive system management and administration</p>
+          <h2 className="text-2xl font-bold text-[#1E293B]">
+            Admin Control Panel
+          </h2>
+          <p className="text-[#64748B] mt-1">
+            Comprehensive system management and administration
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right bg-white rounded-lg px-4 py-2 border border-[#E2E8F0] shadow-sm">
@@ -528,23 +637,74 @@ export default function AdminPanel() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {[
-          { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'from-[#DBEAFE] to-[#BFDBFE]', iconColor: 'text-[#2563EB]', textColor: 'text-[#1E293B]' },
-          { label: 'Active Now', value: stats.activeUsers, icon: UserCheck, color: 'from-[#D1FAE5] to-[#A7F3D0]', iconColor: 'text-[#10B981]', textColor: 'text-[#10B981]' },
-          { label: 'Teachers', value: stats.teacherCount, icon: Shield, color: 'from-[#FEF3C7] to-[#FDE68A]', iconColor: 'text-[#F59E0B]', textColor: 'text-[#1E293B]' },
-          { label: 'Students', value: stats.studentCount, icon: Users, color: 'from-[#E9D5FF] to-[#DDD6FE]', iconColor: 'text-[#8B5CF6]', textColor: 'text-[#1E293B]' },
-          { label: 'Suspended', value: stats.suspendedCount, icon: AlertTriangle, color: 'from-[#FEE2E2] to-[#FECACA]', iconColor: 'text-[#DC2626]', textColor: 'text-[#DC2626]' },
-          { label: 'Classes', value: stats.classCount, icon: Calendar, color: 'from-[#DBEAFE] to-[#BFDBFE]', iconColor: 'text-[#2563EB]', textColor: 'text-[#1E293B]' },
+          {
+            label: 'Total Users',
+            value: stats.totalUsers,
+            icon: Users,
+            color: 'from-[#DBEAFE] to-[#BFDBFE]',
+            iconColor: 'text-[#2563EB]',
+            textColor: 'text-[#1E293B]',
+          },
+          {
+            label: 'Active Now',
+            value: stats.activeUsers,
+            icon: UserCheck,
+            color: 'from-[#D1FAE5] to-[#A7F3D0]',
+            iconColor: 'text-[#10B981]',
+            textColor: 'text-[#10B981]',
+          },
+          {
+            label: 'Teachers',
+            value: stats.teacherCount,
+            icon: Shield,
+            color: 'from-[#FEF3C7] to-[#FDE68A]',
+            iconColor: 'text-[#F59E0B]',
+            textColor: 'text-[#1E293B]',
+          },
+          {
+            label: 'Students',
+            value: stats.studentCount,
+            icon: Users,
+            color: 'from-[#E9D5FF] to-[#DDD6FE]',
+            iconColor: 'text-[#8B5CF6]',
+            textColor: 'text-[#1E293B]',
+          },
+          {
+            label: 'Suspended',
+            value: stats.suspendedCount,
+            icon: AlertTriangle,
+            color: 'from-[#FEE2E2] to-[#FECACA]',
+            iconColor: 'text-[#DC2626]',
+            textColor: 'text-[#DC2626]',
+          },
+          {
+            label: 'Classes',
+            value: stats.classCount,
+            icon: Calendar,
+            color: 'from-[#DBEAFE] to-[#BFDBFE]',
+            iconColor: 'text-[#2563EB]',
+            textColor: 'text-[#1E293B]',
+          },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-white rounded-lg shadow-sm border border-[#E2E8F0] p-5 hover:shadow-md transition-shadow">
+            <div
+              key={stat.label}
+              className="bg-white rounded-lg shadow-sm border border-[#E2E8F0] p-5 hover:shadow-md transition-shadow"
+            >
               <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 bg-gradient-to-br ${stat.color} rounded-lg flex items-center justify-center`}>
+                <div
+                  className={`w-11 h-11 bg-gradient-to-br ${stat.color} rounded-lg flex items-center justify-center`}
+                >
                   <Icon className={`w-5 h-5 ${stat.iconColor}`} />
                 </div>
                 <div>
-                  <p className="text-sm text-[#64748B] font-medium">{stat.label}</p>
-                  <p className={`text-2xl font-bold ${stat.textColor}`}>{stat.value.toLocaleString()}</p>
+                  <p className="text-sm text-[#64748B] font-medium">
+                    {stat.label}
+                  </p>
+                  <p className={`text-2xl font-bold ${stat.textColor}`}>
+                    {stat.value.toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
@@ -579,7 +739,6 @@ export default function AdminPanel() {
 
         {/* Tab Content */}
         <div className="p-6">
-
           {/* ================================================================
               USER MANAGEMENT TAB
           ================================================================ */}
@@ -597,7 +756,10 @@ export default function AdminPanel() {
                       className="pl-10 pr-4 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] w-80"
                     />
                   </div>
-                  <button onClick={fetchUsers} className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors">
+                  <button
+                    onClick={fetchUsers}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-white transition-colors"
+                  >
                     <RefreshCw className="w-4 h-4" /> Refresh
                   </button>
                   <button
@@ -620,84 +782,149 @@ export default function AdminPanel() {
                   <table className="w-full">
                     <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Role</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Last Login</th>
-                        <th className="px-6 py-3 text-right text-xs font-semibold text-[#64748B] uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Last Login
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-[#E2E8F0]">
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-8 text-center text-[#64748B]">
-                            {userSearch ? 'No users match your search.' : 'No users found.'}
+                          <td
+                            colSpan={6}
+                            className="px-6 py-8 text-center text-[#64748B]"
+                          >
+                            {userSearch
+                              ? 'No users match your search.'
+                              : 'No users found.'}
                           </td>
                         </tr>
-                      ) : filteredUsers.map((user) => (
-                        <tr key={user.user_id} className="hover:bg-[#F8FAFC] transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] rounded-full flex items-center justify-center shadow-sm">
-                                <span className="text-white font-semibold text-xs">
-                                  {getInitials(user.full_name)}
+                      ) : (
+                        filteredUsers.map((user) => (
+                          <tr
+                            key={user.user_id}
+                            className="hover:bg-[#F8FAFC] transition-colors"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] rounded-full flex items-center justify-center shadow-sm">
+                                  <span className="text-white font-semibold text-xs">
+                                    {getInitials(user.full_name)}
+                                  </span>
+                                </div>
+                                <span className="font-semibold text-[#1E293B]">
+                                  {user.full_name || 'Unknown User'}
                                 </span>
                               </div>
-                              <span className="font-semibold text-[#1E293B]">{user.full_name || 'Unknown User'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{user.email}</td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
-                              user.role === 'admin' ? 'bg-[#FEE2E2] text-[#DC2626]' :
-                              (user.role === 'teacher') ? 'bg-[#DBEAFE] text-[#2563EB]' :
-                              'bg-[#D1FAE5] text-[#10B981]'
-                            }`}>
-                              {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
-                              (user.status === 'Active' || user.is_active) ? 'bg-[#D1FAE5] text-[#10B981]' : 
-                              user.status === 'Suspended' ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-slate-100 text-slate-500'
-                            }`}>
-                              {user.status || (user.is_active ? 'Active' : 'Pending')}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">
-                            {user.last_login ? new Date(user.last_login).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Never logged in'}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleOpenRoleModal(user)}
-                                className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
-                                title="Change user role"
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#64748B]">
+                              {user.email}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
+                                  user.role === 'admin'
+                                    ? 'bg-[#FEE2E2] text-[#DC2626]'
+                                    : user.role === 'teacher'
+                                      ? 'bg-[#DBEAFE] text-[#2563EB]'
+                                      : 'bg-[#D1FAE5] text-[#10B981]'
+                                }`}
                               >
-                                <Shield className="w-4 h-4 text-[#2563EB]" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleUserStatus(user.user_id, user.status, user.is_active, user.full_name)}
-                                className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
-                                title={user.status === 'Active' || user.is_active ? 'Suspend user' : 'Activate user'}
+                                {user.role
+                                  ? user.role.charAt(0).toUpperCase() +
+                                    user.role.slice(1)
+                                  : 'Student'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
+                                  user.status === 'Active' || user.is_active
+                                    ? 'bg-[#D1FAE5] text-[#10B981]'
+                                    : user.status === 'Suspended'
+                                      ? 'bg-[#FEE2E2] text-[#DC2626]'
+                                      : 'bg-slate-100 text-slate-500'
+                                }`}
                               >
-                                {user.status === 'Active' || user.is_active
-                                  ? <Lock className="w-4 h-4 text-[#F59E0B]" />
-                                  : <Unlock className="w-4 h-4 text-[#10B981]" />
-                                }
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(user.user_id, user.full_name)}
-                                className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
-                                title="Delete user"
-                              >
-                                <Trash2 className="w-4 h-4 text-[#DC2626]" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                {user.status ||
+                                  (user.is_active ? 'Active' : 'Pending')}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#64748B]">
+                              {user.last_login
+                                ? new Date(user.last_login).toLocaleString([], {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : 'Never logged in'}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleOpenRoleModal(user)}
+                                  className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
+                                  title="Change user role"
+                                >
+                                  <Shield className="w-4 h-4 text-[#2563EB]" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleToggleUserStatus(
+                                      user.user_id,
+                                      user.status,
+                                      user.is_active,
+                                      user.full_name
+                                    )
+                                  }
+                                  className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
+                                  title={
+                                    user.status === 'Active' || user.is_active
+                                      ? 'Suspend user'
+                                      : 'Activate user'
+                                  }
+                                >
+                                  {user.status === 'Active' ||
+                                  user.is_active ? (
+                                    <Lock className="w-4 h-4 text-[#F59E0B]" />
+                                  ) : (
+                                    <Unlock className="w-4 h-4 text-[#10B981]" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteUser(
+                                      user.user_id,
+                                      user.full_name
+                                    )
+                                  }
+                                  className="p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors"
+                                  title="Delete user"
+                                >
+                                  <Trash2 className="w-4 h-4 text-[#DC2626]" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -711,7 +938,9 @@ export default function AdminPanel() {
           {activeTab === 'notifications' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-[#64748B]">Send mass notifications via email, SMS, or in-app alerts</p>
+                <p className="text-sm text-[#64748B]">
+                  Send mass notifications via email, SMS, or in-app alerts
+                </p>
                 <button
                   onClick={() => setShowNotificationModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-sm hover:shadow-md transition-shadow"
@@ -723,20 +952,55 @@ export default function AdminPanel() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { type: 'Emergency', label: 'Emergency Alert', desc: 'Send urgent notifications to all users immediately', color: 'from-[#FEE2E2] to-[#FECACA]', border: 'border-[#DC2626]', btnColor: 'bg-[#DC2626] hover:bg-[#B91C1C]', icon: AlertTriangle, iconColor: 'text-[#DC2626]' },
-                  { type: 'Announcement', label: 'General Announcement', desc: 'Share news, updates, and general information', color: 'from-[#DBEAFE] to-[#BFDBFE]', border: 'border-[#2563EB]', btnColor: 'bg-[#2563EB] hover:bg-[#1D4ED8]', icon: Bell, iconColor: 'text-[#2563EB]' },
-                  { type: 'Newsletter', label: 'Newsletter', desc: 'Send scheduled newsletters and updates', color: 'from-[#FEF3C7] to-[#FDE68A]', border: 'border-[#F59E0B]', btnColor: 'bg-[#F59E0B] hover:bg-[#D97706]', icon: Mail, iconColor: 'text-[#F59E0B]' },
+                  {
+                    type: 'Emergency',
+                    label: 'Emergency Alert',
+                    desc: 'Send urgent notifications to all users immediately',
+                    color: 'from-[#FEE2E2] to-[#FECACA]',
+                    border: 'border-[#DC2626]',
+                    btnColor: 'bg-[#DC2626] hover:bg-[#B91C1C]',
+                    icon: AlertTriangle,
+                    iconColor: 'text-[#DC2626]',
+                  },
+                  {
+                    type: 'Announcement',
+                    label: 'General Announcement',
+                    desc: 'Share news, updates, and general information',
+                    color: 'from-[#DBEAFE] to-[#BFDBFE]',
+                    border: 'border-[#2563EB]',
+                    btnColor: 'bg-[#2563EB] hover:bg-[#1D4ED8]',
+                    icon: Bell,
+                    iconColor: 'text-[#2563EB]',
+                  },
+                  {
+                    type: 'Newsletter',
+                    label: 'Newsletter',
+                    desc: 'Send scheduled newsletters and updates',
+                    color: 'from-[#FEF3C7] to-[#FDE68A]',
+                    border: 'border-[#F59E0B]',
+                    btnColor: 'bg-[#F59E0B] hover:bg-[#D97706]',
+                    icon: Mail,
+                    iconColor: 'text-[#F59E0B]',
+                  },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div key={item.type} className={`bg-gradient-to-br ${item.color} rounded-lg p-5 border-2 ${item.border} shadow-md`}>
+                    <div
+                      key={item.type}
+                      className={`bg-gradient-to-br ${item.color} rounded-lg p-5 border-2 ${item.border} shadow-md`}
+                    >
                       <div className="flex items-center gap-3 mb-3">
                         <Icon className={`w-6 h-6 ${item.iconColor}`} />
-                        <h3 className="font-bold text-[#1E293B]">{item.label}</h3>
+                        <h3 className="font-bold text-[#1E293B]">
+                          {item.label}
+                        </h3>
                       </div>
                       <p className="text-sm text-[#64748B] mb-4">{item.desc}</p>
                       <button
-                        onClick={() => { setNotifType(item.type as any); setShowNotificationModal(true); }}
+                        onClick={() => {
+                          setNotifType(item.type as any);
+                          setShowNotificationModal(true);
+                        }}
                         className={`w-full px-4 py-2 ${item.btnColor} text-white rounded-lg font-semibold text-sm transition-colors`}
                       >
                         Send {item.label}
@@ -747,27 +1011,40 @@ export default function AdminPanel() {
               </div>
 
               <div className="bg-white border border-[#E2E8F0] rounded-lg p-5">
-                <h3 className="font-bold text-[#1E293B] mb-4">Recent Notifications</h3>
+                <h3 className="font-bold text-[#1E293B] mb-4">
+                  Recent Notifications
+                </h3>
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                   </div>
                 ) : notifications.length === 0 ? (
-                  <p className="text-center text-[#64748B] py-8">No notifications sent yet.</p>
+                  <p className="text-center text-[#64748B] py-8">
+                    No notifications sent yet.
+                  </p>
                 ) : (
                   <div className="space-y-3">
                     {notifications.map((notif) => (
-                      <div key={notif.id} className="flex items-center justify-between p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                      <div
+                        key={notif.id}
+                        className="flex items-center justify-between p-4 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
+                      >
                         <div className="flex items-center gap-4">
-                          <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            notif.notification_type === 'Emergency' ? 'bg-[#FEE2E2] text-[#DC2626]' :
-                            notif.notification_type === 'Announcement' ? 'bg-[#DBEAFE] text-[#2563EB]' :
-                            'bg-[#FEF3C7] text-[#F59E0B]'
-                          }`}>
+                          <div
+                            className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              notif.notification_type === 'Emergency'
+                                ? 'bg-[#FEE2E2] text-[#DC2626]'
+                                : notif.notification_type === 'Announcement'
+                                  ? 'bg-[#DBEAFE] text-[#2563EB]'
+                                  : 'bg-[#FEF3C7] text-[#F59E0B]'
+                            }`}
+                          >
                             {notif.notification_type}
                           </div>
                           <div>
-                            <p className="font-semibold text-[#1E293B]">{notif.subject}</p>
+                            <p className="font-semibold text-[#1E293B]">
+                              {notif.subject}
+                            </p>
                             <p className="text-sm text-[#64748B]">
                               Sent: {new Date(notif.sent_at).toLocaleString()} •{' '}
                               {notif.recipient_count} recipients •{' '}
@@ -790,7 +1067,9 @@ export default function AdminPanel() {
           {activeTab === 'audit' && (
             <div className="space-y-5">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <p className="text-sm text-[#64748B]">Monitor system activity and track user actions</p>
+                <p className="text-sm text-[#64748B]">
+                  Monitor system activity and track user actions
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-[#64748B]">From</label>
@@ -838,25 +1117,37 @@ export default function AdminPanel() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
                   <p className="text-sm text-[#64748B] mb-1">Total Events</p>
-                  <p className="text-2xl font-bold text-[#1E293B]">{auditLogs.length}</p>
+                  <p className="text-2xl font-bold text-[#1E293B]">
+                    {auditLogs.length}
+                  </p>
                 </div>
                 <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
                   <p className="text-sm text-[#64748B] mb-1">Today</p>
                   <p className="text-2xl font-bold text-[#2563EB]">
-                    {auditLogs.filter(l => new Date(l.timestamp).toDateString() === new Date().toDateString()).length}
+                    {
+                      auditLogs.filter(
+                        (l) =>
+                          new Date(l.timestamp).toDateString() ===
+                          new Date().toDateString()
+                      ).length
+                    }
                   </p>
                 </div>
                 <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
                   <p className="text-sm text-[#64748B] mb-1">Failed Actions</p>
                   <p className="text-2xl font-bold text-[#DC2626]">
-                    {auditLogs.filter(l => l.status.toLowerCase() === 'failed').length}
+                    {
+                      auditLogs.filter(
+                        (l) => l.status.toLowerCase() === 'failed'
+                      ).length
+                    }
                   </p>
                 </div>
                 <div className="bg-white border border-[#E2E8F0] rounded-lg p-4">
                   <p className="text-sm text-[#64748B] mb-1">Success Rate</p>
                   <p className="text-2xl font-bold text-[#10B981]">
                     {auditLogs.length > 0
-                      ? `${Math.round((auditLogs.filter(l => l.status.toLowerCase() === 'success').length / auditLogs.length) * 100)}%`
+                      ? `${Math.round((auditLogs.filter((l) => l.status.toLowerCase() === 'success').length / auditLogs.length) * 100)}%`
                       : '—'}
                   </p>
                 </div>
@@ -871,43 +1162,77 @@ export default function AdminPanel() {
                   <table className="w-full">
                     <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Action</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Resource</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Timestamp</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Action
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Resource
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Timestamp
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                          Status
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-[#E2E8F0]">
                       {auditLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-[#64748B]">No audit logs yet.</td>
-                        </tr>
-                      ) : auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-[#F8FAFC] transition-colors">
-                          <td className="px-6 py-4 text-sm font-medium text-[#1E293B]">{log.users?.full_name || 'System / Unknown'}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{log.action}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{log.resource}</td>
-                          <td className="px-6 py-4 text-sm text-[#64748B]">{new Date(log.timestamp).toLocaleString()}</td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
-                              log.status.toLowerCase() === 'success' ? 'bg-[#D1FAE5] text-[#10B981]' : 'bg-[#FEE2E2] text-[#DC2626]'
-                            }`}>
-                              {log.status.toLowerCase() === 'success'
-                                ? <CheckCircle className="w-3 h-3" />
-                                : <AlertTriangle className="w-3 h-3" />}
-                              {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
-                            </span>
+                          <td
+                            colSpan={5}
+                            className="px-6 py-8 text-center text-[#64748B]"
+                          >
+                            No audit logs yet.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        auditLogs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="hover:bg-[#F8FAFC] transition-colors"
+                          >
+                            <td className="px-6 py-4 text-sm font-medium text-[#1E293B]">
+                              {log.users?.full_name || 'System / Unknown'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#64748B]">
+                              {log.action}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#64748B]">
+                              {log.resource}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#64748B]">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                                  log.status.toLowerCase() === 'success'
+                                    ? 'bg-[#D1FAE5] text-[#10B981]'
+                                    : 'bg-[#FEE2E2] text-[#DC2626]'
+                                }`}
+                              >
+                                {log.status.toLowerCase() === 'success' ? (
+                                  <CheckCircle className="w-3 h-3" />
+                                ) : (
+                                  <AlertTriangle className="w-3 h-3" />
+                                )}
+                                {log.status.charAt(0).toUpperCase() +
+                                  log.status.slice(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               )}
             </div>
           )}
-
         </div>
       </div>
 
@@ -917,10 +1242,14 @@ export default function AdminPanel() {
       {showNotificationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold text-[#1E293B] mb-4">Send Notification</h3>
+            <h3 className="text-lg font-bold text-[#1E293B] mb-4">
+              Send Notification
+            </h3>
             <form onSubmit={handleSendNotification} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Type</label>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Type
+                </label>
                 <select
                   value={notifType}
                   onChange={(e) => setNotifType(e.target.value as any)}
@@ -932,7 +1261,9 @@ export default function AdminPanel() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Subject</label>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Subject
+                </label>
                 <input
                   type="text"
                   required
@@ -943,7 +1274,9 @@ export default function AdminPanel() {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Message</label>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Message
+                </label>
                 <textarea
                   required
                   value={notifMessage}
@@ -966,7 +1299,11 @@ export default function AdminPanel() {
                   disabled={notifSending}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
                 >
-                  {notifSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {notifSending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                   {notifSending ? 'Sending...' : 'Send'}
                 </button>
               </div>
@@ -984,17 +1321,26 @@ export default function AdminPanel() {
                 <Shield className="w-5 h-5" />
                 Change User Role
               </h3>
-              <p className="text-blue-100 text-sm mt-1">Update the role for {selectedUser.full_name}</p>
+              <p className="text-blue-100 text-sm mt-1">
+                Update the role for {selectedUser.full_name}
+              </p>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#64748B] mb-2">Current Role</label>
+                <label className="block text-sm font-medium text-[#64748B] mb-2">
+                  Current Role
+                </label>
                 <div className="px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[#1E293B] font-medium">
-                  {selectedUser.role ? selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1) : 'Student'}
+                  {selectedUser.role
+                    ? selectedUser.role.charAt(0).toUpperCase() +
+                      selectedUser.role.slice(1)
+                    : 'Student'}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#64748B] mb-2">New Role</label>
+                <label className="block text-sm font-medium text-[#64748B] mb-2">
+                  New Role
+                </label>
                 <div className="space-y-2">
                   {(['admin', 'teacher', 'student'] as const).map((role) => (
                     <label
@@ -1010,22 +1356,36 @@ export default function AdminPanel() {
                         name="role"
                         value={role}
                         checked={newRole === role}
-                        onChange={(e) => setNewRole(e.target.value as 'admin' | 'teacher' | 'student')}
+                        onChange={(e) =>
+                          setNewRole(
+                            e.target.value as 'admin' | 'teacher' | 'student'
+                          )
+                        }
                         className="w-4 h-4 text-[#2563EB] border-[#CBD5E1] focus:ring-[#2563EB]"
                       />
                       <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          role === 'admin' ? 'bg-[#FEE2E2]' :
-                          role === 'teacher' ? 'bg-[#DBEAFE]' :
-                          'bg-[#D1FAE5]'
-                        }`}>
-                          <Shield className={`w-4 h-4 ${
-                            role === 'admin' ? 'text-[#DC2626]' :
-                            role === 'teacher' ? 'text-[#2563EB]' :
-                            'text-[#10B981]'
-                          }`} />
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            role === 'admin'
+                              ? 'bg-[#FEE2E2]'
+                              : role === 'teacher'
+                                ? 'bg-[#DBEAFE]'
+                                : 'bg-[#D1FAE5]'
+                          }`}
+                        >
+                          <Shield
+                            className={`w-4 h-4 ${
+                              role === 'admin'
+                                ? 'text-[#DC2626]'
+                                : role === 'teacher'
+                                  ? 'text-[#2563EB]'
+                                  : 'text-[#10B981]'
+                            }`}
+                          />
                         </div>
-                        <span className="font-medium text-[#1E293B] capitalize">{role}</span>
+                        <span className="font-medium text-[#1E293B] capitalize">
+                          {role}
+                        </span>
                       </div>
                     </label>
                   ))}
@@ -1035,7 +1395,9 @@ export default function AdminPanel() {
                 <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-700">
-                    You are about to change this user's role from <strong>{selectedUser.role || 'student'}</strong> to <strong>{newRole}</strong>.
+                    You are about to change this user's role from{' '}
+                    <strong>{selectedUser.role || 'student'}</strong> to{' '}
+                    <strong>{newRole}</strong>.
                   </p>
                 </div>
               )}
@@ -1057,7 +1419,11 @@ export default function AdminPanel() {
                 disabled={roleUpdating || newRole === selectedUser.role}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {roleUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                {roleUpdating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Shield className="w-4 h-4" />
+                )}
                 {roleUpdating ? 'Updating...' : 'Update Role'}
               </button>
             </div>
@@ -1074,14 +1440,27 @@ export default function AdminPanel() {
                 <CheckCircle className="w-5 h-5" />
                 Confirm Account Creation
               </h3>
-              <p className="text-slate-200 text-sm mt-1">The selected password below will be emailed to the user automatically.</p>
+              <p className="text-slate-200 text-sm mt-1">
+                The selected password below will be emailed to the user
+                automatically.
+              </p>
             </div>
             <div className="p-6 space-y-4">
               <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-2">
-                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Full Name:</span> {newUserFullName}</p>
-                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Email:</span> {newUserEmail}</p>
-                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Role:</span> {newUserRole}</p>
-                <p className="text-sm text-[#1E293B]"><span className="font-semibold">Password:</span> {newUserPassword || 'Not generated'}</p>
+                <p className="text-sm text-[#1E293B]">
+                  <span className="font-semibold">Full Name:</span>{' '}
+                  {newUserFullName}
+                </p>
+                <p className="text-sm text-[#1E293B]">
+                  <span className="font-semibold">Email:</span> {newUserEmail}
+                </p>
+                <p className="text-sm text-[#1E293B]">
+                  <span className="font-semibold">Role:</span> {newUserRole}
+                </p>
+                <p className="text-sm text-[#1E293B]">
+                  <span className="font-semibold">Password:</span>{' '}
+                  {newUserPassword || 'Not generated'}
+                </p>
               </div>
               <p className="text-sm text-[#64748B]">
                 The user can immediately sign in with the emailed password.
@@ -1101,7 +1480,11 @@ export default function AdminPanel() {
                 disabled={addUserLoading || !newUserPassword}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
               >
-                {addUserLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {addUserLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
                 {addUserLoading ? 'Creating...' : 'Create and Email Password'}
               </button>
             </div>
@@ -1128,9 +1511,17 @@ export default function AdminPanel() {
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); setShowCreateUserConfirmModal(true); }} className="p-6 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setShowCreateUserConfirmModal(true);
+              }}
+              className="p-6 space-y-4"
+            >
               <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Full Name</label>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   required
@@ -1141,7 +1532,9 @@ export default function AdminPanel() {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Email Address</label>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   required
@@ -1151,57 +1544,71 @@ export default function AdminPanel() {
                   className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                 />
               </div>
-               <div>
-                 <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Role</label>
-                 <select
-                   value={newUserRole}
-                   onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'teacher' | 'student')}
-                   className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                 >
-                   <option value="student">Student</option>
-                   <option value="teacher">Teacher</option>
-                   <option value="admin">Admin</option>
-                 </select>
-               </div>
-               <div>
-                 <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">Generated Password</label>
-                 <div className="mt-1 flex items-center gap-2">
-                   <input
-                     type="text"
-                     value={newUserPassword}
-                     readOnly
-                     placeholder="Click Generate Password"
-                     className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm bg-[#F8FAFC] text-[#1E293B]"
-                   />
-                   <button
-                     type="button"
-                     onClick={generateAdminPassword}
-                     className="p-2 bg-[#EEF2FF] text-[#1D4ED8] rounded-lg hover:bg-[#E0E7FF] transition-colors"
-                     title="Generate password"
-                   >
-                     <Wand2 className="w-4 h-4" />
-                   </button>
-                   <button
-                     type="button"
-                     onClick={handleCopyPassword}
-                     disabled={!newUserPassword}
-                     className="p-2 bg-[#F1F5F9] text-[#334155] rounded-lg hover:bg-[#E2E8F0] transition-colors disabled:opacity-50"
-                     title="Copy password"
-                   >
-                     {copiedPassword ? <Check className="w-4 h-4 text-[#10B981]" /> : <Copy className="w-4 h-4" />}
-                   </button>
-                 </div>
-                 <p className="mt-1 text-xs text-[#64748B]">Generate and copy this password before confirming.</p>
-               </div>
-               <div className="flex gap-3 pt-2">
+              <div>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Role
+                </label>
+                <select
+                  value={newUserRole}
+                  onChange={(e) =>
+                    setNewUserRole(
+                      e.target.value as 'admin' | 'teacher' | 'student'
+                    )
+                  }
+                  className="mt-1 w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                >
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                  Generated Password
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newUserPassword}
+                    readOnly
+                    placeholder="Click Generate Password"
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm bg-[#F8FAFC] text-[#1E293B]"
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowAddUserModal(false);
-                      setShowCreateUserConfirmModal(false);
-                    }}
-                    className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
+                    onClick={generateAdminPassword}
+                    className="p-2 bg-[#EEF2FF] text-[#1D4ED8] rounded-lg hover:bg-[#E0E7FF] transition-colors"
+                    title="Generate password"
                   >
+                    <Wand2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyPassword}
+                    disabled={!newUserPassword}
+                    className="p-2 bg-[#F1F5F9] text-[#334155] rounded-lg hover:bg-[#E2E8F0] transition-colors disabled:opacity-50"
+                    title="Copy password"
+                  >
+                    {copiedPassword ? (
+                      <Check className="w-4 h-4 text-[#10B981]" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-[#64748B]">
+                  Generate and copy this password before confirming.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setShowCreateUserConfirmModal(false);
+                  }}
+                  className="flex-1 px-4 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#64748B] hover:bg-[#F8FAFC] transition-colors"
+                >
                   Cancel
                 </button>
                 <button
