@@ -19,7 +19,7 @@ cryptography==46.0.5
 cycler==0.12.1
 deprecation==2.1.0
 dj-database-url==3.1.2
-django==6.0
+Django==6.0
 django-allauth==65.13.1
 django-celery-beat==2.9.0
 django-cors-headers==4.9.0
