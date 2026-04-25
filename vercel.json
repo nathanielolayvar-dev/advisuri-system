@@ -7,10 +7,7 @@
     },
     "backend": {
       "entrypoint": "backend",
-      "routePrefix": "/_backend",
-      "env": {
-        "DJANGO_SETTINGS_MODULE": "advisuri.settings"
-      }
+      "routePrefix": "/_backend"
     }
   }
 }
