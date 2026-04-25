@@ -91,9 +91,10 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': dj_database_url.config(
         # This will look for a variable named DATABASE_URL in your .env or Vercel settings
-        default=os.getenv('DATABASE_URL'),
+        default=os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3'),
         conn_max_age=600,
         conn_health_checks=True,
+        ssl_require=True,
     )
 }
 
@@ -123,7 +124,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -143,7 +144,14 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 STORAGES = {
+"default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
