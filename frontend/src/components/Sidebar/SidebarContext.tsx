@@ -22,8 +22,6 @@ interface SidebarContextType {
   setAdminPanelOpen: (value: boolean) => void;
 }
 
-const AUTH_TIMEOUT_MS = 5000;
-
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -41,7 +39,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [authReady, setAuthReady] = useState(false);
   const [isAdminPanelOpen, setAdminPanelOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   
   const [isPinned, setIsPinned] = useState<boolean>(() => {
@@ -108,19 +105,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isMountedRef.current = true;
     abortControllerRef.current = new AbortController();
 
-    const timeoutId = setTimeout(() => {
-      if (isMountedRef.current) {
-        setLoading(false);
-        setAuthReady(true);
-      }
-    }, AUTH_TIMEOUT_MS);
-    timeoutRef.current = timeoutId;
-
     getUserProfile(abortControllerRef.current.signal).finally(() => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
       if (isMountedRef.current) {
         setLoading(false);
         setAuthReady(true);
@@ -129,9 +114,6 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     return () => {
       isMountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
       abortControllerRef.current?.abort();
     };
   }, [getUserProfile]);

@@ -73,14 +73,15 @@ function AuthCallback(): React.ReactNode {
 // Wrapper component to redirect admin users away from certain routes
 function AdminRouteGuard({ children }: { children: React.ReactNode }) {
   const { userData, loading } = useSidebar();
-  const isAdminUser = userData?.isAdmin === true;
 
+  // If still loading, render nothing (fallback to Suspense-like behavior)
+  // Don't redirect during loading - let the route render
   if (loading) {
-    return <div>Loading...</div>;
+    return <>{children}</>;
   }
 
   // If admin, redirect to admin page
-  if (isAdminUser) {
+  if (userData?.isAdmin === true) {
     return <Navigate to="/admin" replace />;
   }
 
