@@ -18,7 +18,7 @@ from api.analytics.algorithms.risk_detection import predict_project_risk
 
 # Models, Analytic Engine & Serializers
 from .models import TaskNote, Task, Message, Group, Document
-from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer, DocumentSerializer
+from .serializers import NoteSerializer, TaskSerializer, MessageSerializer, GroupSerializer, DocumentSerializer, UserSerializer
 from .analytics.analytics_engine import AnalyticsEngine
 import pandas as pd
 
@@ -510,3 +510,7 @@ class GroupAnalyticsDashboard(APIView):
         else:
             return "Low"
         
+class AdminCreateUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser] # Restricts to Admins
