@@ -1,19 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "backend/backend/wsgi.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "backend/backend/wsgi.py"
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "routePrefix": "/",
+      "framework": "vite"
     },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
+    "backend": {
+      "entrypoint": "backend",
+      "routePrefix": "/_backend"
     }
-  ]
+  }
 }
