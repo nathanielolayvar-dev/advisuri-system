@@ -3,8 +3,7 @@
   "builds": [
     {
       "src": "backend/project_name/wsgi.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "15mb", "runtime": "python3.9" }
+      "use": "@vercel/python"
     },
     {
       "src": "frontend/package.json",
@@ -13,13 +12,7 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "backend/project_name/wsgi.py"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "frontend/$1"
-    }
+    { "source": "/api/(.*)", "destination": "backend/project_name/wsgi.py" },
+    { "source": "/(.*)", "destination": "frontend/$1" }
   ]
 }
