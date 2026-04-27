@@ -4,15 +4,16 @@
     {
       "src": "backend/project_name/wsgi.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "frontend/dist" }
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "backend/project_name/wsgi.py" },
-    { "source": "/(.*)", "destination": "frontend/$1" }
+    {
+      "source": "/api/(.*)",
+      "destination": "backend/project_name/wsgi.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
   ]
 }
