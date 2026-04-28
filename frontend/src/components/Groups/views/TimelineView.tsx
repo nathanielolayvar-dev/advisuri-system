@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 
@@ -17,9 +17,10 @@ interface TimelineTask {
 
 interface TimelineViewProps {
   groupId: string | number;
+  isStaff?: boolean;
 }
 
-export const TimelineView = ({ groupId }: TimelineViewProps) => {
+export const TimelineView = ({ groupId, isStaff = false }: TimelineViewProps) => {
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -57,15 +58,14 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
       };
     }
 
-    // Filter tasks that have due_dates
     const tasksWithDueDate = tasks.filter(t => t.due_date);
-    
+
     if (tasksWithDueDate.length === 0) {
       const today = new Date();
       return {
-        dateRange: { 
-          start: today, 
-          end: new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000) 
+        dateRange: {
+          start: today,
+          end: new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
         },
         sortedTasks: tasks
       };
@@ -130,7 +130,7 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
   const nearestDueDate = useMemo(() => {
     const tasksWithDueDate = tasks.filter(t => t.due_date);
     if (tasksWithDueDate.length === 0) return null;
-    const sorted = [...tasksWithDueDate].sort((a, b) => 
+    const sorted = [...tasksWithDueDate].sort((a, b) =>
       new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime()
     );
     return new Date(sorted[0].due_date!);
@@ -151,18 +151,18 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     if (date.getTime() === today.getTime()) return 'Today';
     if (date.getTime() === tomorrow.getTime()) return 'Tmrw';
-    
+
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   const isToday = (date: Date) => {
     const today = new Date();
-    return date.getDate() === today.getDate() && 
-           date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear();
+    return date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
   };
 
   const isOverdue = (dueDate?: string) => {
@@ -192,27 +192,29 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
           </div>
           <div>
             <h4 className="font-bold text-slate-800 text-lg">Project Timeline</h4>
-            <p className="text-xs text-slate-500">Track your group deadlines</p>
+            <p className="text-xs text-slate-500">Track deadlines</p>
           </div>
         </div>
-        
-        {daysRemaining !== null && (
-          <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full ${
-            daysRemaining < 0 
-              ? 'bg-red-100 text-red-700' 
-              : daysRemaining === 0 
+
+        <div className="flex items-center gap-2">
+          {daysRemaining !== null && (
+            <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full ${
+              daysRemaining < 0
+                ? 'bg-red-100 text-red-700'
+                : daysRemaining === 0
                 ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-green-100 text-green-700'
-          }`}>
-            <AlertCircle size={16} />
-            {daysRemaining < 0 
-              ? `${Math.abs(daysRemaining)} days overdue`
-              : daysRemaining === 0 
+                : 'bg-blue-100 text-blue-700'
+            }`}>
+              <AlertCircle size={14} />
+              {daysRemaining < 0
+                ? 'Overdue!'
+                : daysRemaining === 0
                 ? 'Due today!'
                 : `${daysRemaining} days remaining`
-            }
-          </div>
-        )}
+              }
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -232,15 +234,15 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Date Header Row */}
-            <div className="flex bg-slate-50 border-b border-slate-100">
+            <div className="flex bg-slate-50 border-b border-slate-100 overflow-x-auto">
               <div className="w-56 flex-shrink-0 px-4 py-3">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Task</span>
               </div>
               <div className="flex-1 flex">
                 {timelineDates.map((date, i) => (
-                  <div 
-                    key={i} 
-                    className={`flex-1 text-center py-3 border-l border-slate-100 ${
+                  <div
+                    key={i}
+                    className={`flex-1 text-center py-3 border-l border-slate-100 min-w-[60px] ${
                       isToday(date) ? 'bg-blue-50' : ''
                     }`}
                   >
@@ -262,12 +264,11 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
               const widthPercent = Math.max(10, 100 / maxDay);
               const taskColor = task.status === 'completed' ? '#22C55E' : getPriorityColor(task.priority);
               const isTaskOverdue = isOverdue(task.due_date) && task.status !== 'completed';
-              
+
               return (
-                <div key={task.id} className={`flex border-b border-slate-100 hover:bg-slate-50 transition-colors relative ${
+                <div key={task.id} className={`flex border-b border-slate-100 hover:bg-slate-50 transition-colors relative overflow-x-auto ${
                   task.progress_percentage === 100 ? 'opacity-75 bg-emerald-50' : ''
                 }`}>
-                  {/* Completed badge for 100% progress tasks */}
                   {task.progress_percentage === 100 && (
                     <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold z-10">
                       ✓ Completed
@@ -275,40 +276,33 @@ export const TimelineView = ({ groupId }: TimelineViewProps) => {
                   )}
                   <div className="w-56 flex-shrink-0 px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-2 h-2 rounded-full"
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: taskColor }}
                       />
-                      <div>
-                        <h5 className="font-semibold text-sm text-slate-800">{task.title}</h5>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <div className="min-w-0">
+                        <h5 className="font-semibold text-sm text-slate-800 truncate">{task.title}</h5>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
                             task.status === 'completed' ? 'bg-green-100 text-green-700' :
                             task.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
                             'bg-slate-100 text-slate-600'
                           }`}>
                             {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
                           </span>
-                          {task.progress_percentage === 100 && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                              Completed
-                            </span>
-                          )}
                           <span className="text-xs text-slate-400">{task.progress_percentage || 0}%</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex-1 relative h-16">
-                    {/* Background Grid */}
+
+                  <div className="flex-1 relative h-16 min-w-[500px]">
                     <div className="absolute inset-0 flex">
                       {timelineDates.map((_, i) => (
                         <div key={i} className="flex-1 border-l border-slate-100" />
                       ))}
                     </div>
-                    
-                    {/* Task Bar */}
+
                     <div
                       className="absolute top-3 h-10 rounded-lg shadow-sm transition-all duration-300"
                       style={{

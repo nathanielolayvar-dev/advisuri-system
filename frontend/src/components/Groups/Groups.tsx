@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar as CalendarIcon, CalendarDays, Bell, Megaphone } from 'lucide-react';
+import { Video, MessageSquare, FileText, Clock, Users, MoreVertical, Calendar as CalendarIcon, CalendarDays, Bell, Megaphone, Award } from 'lucide-react';
 import { GroupTabs } from './GroupTabs';
 import { GroupCreator } from '../GroupCreator/GroupCreator';
 import { UserSearchDropdown } from './UserSearchDropdown';
@@ -9,11 +9,12 @@ import { TimelineView } from './views/TimelineView';
 import { ScheduleView } from './views/ScheduleView';
 import { VideoCall } from './views/VideoCall';
 import { NotifyView } from './views/NotifyView';
+import { ScoreSheet } from './views/ScoreSheet';
 import { useSidebar } from '../Sidebar/SidebarContext';
 import { supabase } from '../../supabaseClient';
 import { useSearchParams } from 'react-router-dom';
 
-type ViewType = 'chat' | 'tasks' | 'timeline' | 'schedule' | 'notify';
+type ViewType = 'chat' | 'tasks' | 'timeline' | 'schedule' | 'notify' | 'scoresheet';
 
 const MemberStack = ({ members }: { members: any[] }) => {
   const displayLimit = 4;
@@ -67,7 +68,7 @@ export const Groups = () => {
       const groupExists = groups.some(g => g.id === groupId);
       if (groupExists) {
         setSelectedGroupId(groupId);
-        if (view === 'tasks' || view === 'timeline' || view === 'chat' || view === 'schedule' || view === 'notify') {
+        if (view === 'tasks' || view === 'timeline' || view === 'chat' || view === 'schedule' || view === 'notify' || view === 'scoresheet') {
           setActiveView(view);
         }
       }
@@ -328,9 +329,10 @@ export const Groups = () => {
                   { id: 'notify', icon: Bell, label: 'Announcements' },
                   { id: 'chat', icon: MessageSquare, label: 'Chat & Docs' },
                   { id: 'tasks', icon: FileText, label: 'Tasks' },
+                  { id: 'scoresheet', icon: Award, label: 'Scores' },
                   { id: 'timeline', icon: Clock, label: 'Timeline' },
                   { id: 'schedule', icon: CalendarIcon, label: 'Schedule' },
-                ]).map(({ id, icon: Icon, label }) => (
+                ].filter(Boolean)).map(({ id, icon: Icon, label }) => (
                   <button
                     key={id}
                     onClick={() => setActiveView(id as ViewType)}
@@ -356,8 +358,9 @@ export const Groups = () => {
                 <div className="h-full animate-fade-in">
                   {activeView === 'chat' && <ChatView groupId={selectedGroupId} />}
                   {activeView === 'tasks' && <TasksView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
-                  {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} />}
+                  {activeView === 'timeline' && <TimelineView groupId={selectedGroupId} isStaff={isStaff} />}
                   {activeView === 'notify' && <NotifyView groupId={selectedGroupId} isStaff={isStaff} userId={userData?.id || ''} />}
+                  {activeView === 'scoresheet' && <ScoreSheet groupId={selectedGroupId} students={activeGroup?.member_details || []} isStaff={isStaff} currentUserId={userData?.id || ''} />}
                 </div>
               )}
             </div>

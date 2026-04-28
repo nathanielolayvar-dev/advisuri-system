@@ -95,3 +95,5 @@ wcwidth==0.6.0
 websockets==15.0.1
 yarl==1.23.0
 zstandard==0.25.0
+whitenoise>=6.0.0
+

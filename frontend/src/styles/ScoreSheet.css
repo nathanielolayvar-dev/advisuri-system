@@ -1,0 +1,545 @@
+/* Score Sheet Component Styles */
+
+.score-sheet-wrapper {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px;
+  overflow: auto;
+}
+
+.score-sheet-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.score-sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 2px solid #667eea;
+}
+
+.score-sheet-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.save-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #f0f4ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Main Content */
+.score-sheet-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+  position: relative;
+}
+
+/* Students Column */
+.students-column {
+  min-width: 180px;
+  width: 180px;
+  border-right: 2px solid #e1e8ed;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  overflow-y: auto;
+}
+
+.students-header {
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.students-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 60px;
+}
+
+.student-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e1e8ed;
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  background: white;
+  transition: background-color 0.2s ease;
+}
+
+.student-row:hover {
+  background: #f0f4ff;
+}
+
+.student-name {
+  font-weight: 500;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+/* Tasks Grid Wrapper */
+.tasks-grid-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+}
+
+.tasks-grid-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tasks-grid-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.tasks-grid-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.tasks-grid-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.tasks-grid {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 100%;
+}
+
+.grid-row {
+  display: flex;
+  flex-direction: row;
+  min-height: 45px;
+}
+
+.grid-row:nth-child(odd) {
+  background: #ffffff;
+}
+
+.grid-row:nth-child(even) {
+  background: #f8fafc;
+}
+
+.grid-row.header-row {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 700;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.grid-row.average-row {
+  background: #f0f4ff;
+  border-top: 2px solid #e1e8ed;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.grid-cell {
+  min-width: 120px;
+  width: 120px;
+  padding: 8px;
+  border-right: 1px solid #e1e8ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-cell {
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.task-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-max-score {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.score-input {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.score-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.score-input.read-only {
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #e1e8ed;
+}
+
+.score-input.read-only:focus {
+  outline: none;
+  border-color: #e1e8ed;
+  background: #f0f4ff;
+  box-shadow: none;
+}
+
+.score-input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+  border-color: #e1e8ed;
+}
+
+.score-input::placeholder {
+  color: #cbd5e1;
+}
+
+.read-only-indicator {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: none;
+  color: #cbd5e1;
+  opacity: 0.6;
+}
+
+.average-cell {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.average-value {
+  font-size: 13px;
+}
+
+/* Scroll Controls */
+.scroll-controls {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+
+.scroll-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #667eea;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.scroll-btn:hover {
+  background: #764ba2;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Summary Section */
+.score-sheet-summary {
+  border-top: 2px solid #e1e8ed;
+  background: #f8fafc;
+  padding: 20px;
+  max-height: 35%;
+  overflow-y: auto;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.summary-card {
+  background: white;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.summary-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.summary-student-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1e293b;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.summary-total {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.summary-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-input-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-input {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.summary-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.summary-input.read-only {
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #e1e8ed;
+}
+
+.summary-input.read-only:focus {
+  outline: none;
+  border-color: #e1e8ed;
+  background: #f0f4ff;
+  box-shadow: none;
+}
+
+.summary-input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+  border-color: #e1e8ed;
+}
+
+/* Scrollbar Styles */
+.students-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.students-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.students-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.students-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.score-sheet-summary::-webkit-scrollbar {
+  width: 6px;
+}
+
+.score-sheet-summary::-webkit-scrollbar-track {
+  background: #e1e8ed;
+}
+
+.score-sheet-summary::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.score-sheet-summary::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar but keep scrolling functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .score-sheet-wrapper {
+    padding: 12px;
+  }
+
+  .score-sheet-header {
+    padding: 16px 20px;
+  }
+
+  .score-sheet-header h2 {
+    font-size: 20px;
+  }
+
+  .students-column {
+    min-width: 140px;
+    width: 140px;
+  }
+
+  .grid-cell {
+    min-width: 100px;
+    width: 100px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .score-sheet-main {
+    flex-direction: column;
+  }
+
+  .students-column {
+    width: 100%;
+    min-width: 100%;
+    height: 150px;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 2px solid #e1e8ed;
+    overflow-x: auto;
+  }
+
+  .students-header {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    width: 60px;
+    min-width: 60px;
+  }
+
+  .students-list {
+    display: flex;
+    flex-direction: row;
+    padding-bottom: 0;
+  }
+
+  .student-row {
+    min-width: 120px;
+    width: 120px;
+    border-bottom: none;
+    border-right: 1px solid #e1e8ed;
+  }
+
+  .grid-cell {
+    min-width: 90px;
+    width: 90px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-cell {
+    min-width: 80px;
+    width: 80px;
+  }
+
+  .score-input {
+    font-size: 12px;
+    padding: 6px 4px;
+  }
+}

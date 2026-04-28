@@ -388,18 +388,16 @@ export const TasksView = ({ groupId, isStaff, userId }: TasksViewProps) => {
       // 3. Update UI
       setSelectedTask(prev => prev ? {
         ...prev,
-        status: (isAccepted ? 'completed' : 'in-progress') as 'completed' | 'in-progress' | 'pending',
-        final_score: taskScore === '' ? undefined : (taskScore as number),
-        progress_percentage: isAccepted ? 100 : prev.progress_percentage,
-        completed_at: isAccepted ? new Date().toISOString() : prev.completed_at,
+        status: taskUpdatePayload.status,
+        final_score: taskUpdatePayload.final_score,
+        progress_percentage: taskUpdatePayload.progress_percentage || prev.progress_percentage,
+        completed_at: taskUpdatePayload.completed_at || prev.completed_at
       } : null);
-      
-      setActiveGradingSub(null); // Close the sidebar
-      fetchSubmissions(selectedTask.id);
-      
-      // 🚨 THE FIX: Refresh the master task list in the background! 🚨
+
+      // Refresh data
       fetchTasks();
-      
+      fetchSubmissions(selectedTask.id);
+      setActiveGradingSub(null);
     } catch (err) {
       console.error("Error submitting grade:", err);
       alert("Failed to submit grade.");

@@ -11,7 +11,6 @@ urlpatterns = [
     path("notes/delete/<int:pk>/", views.NoteDelete.as_view(), name="delete-note"), 
     path("tasks/", views.TaskListCreate.as_view(), name="task-list"),
     path("user/profile/", views.get_user_profile, name="user_profile"),
-    path("admin/create-user/", views.AdminCreateUserView.as_view(), name="admin-create-user"),
     path("documents/", views.DocumentListCreate.as_view(), name="document-list"),
     path("documents/delete/<int:pk>/", views.DocumentDelete.as_view(), name="delete-document"),
     path("analytics/<int:group_id>/", views.GroupAnalyticsDashboard.as_view(), name="group-analytics"),

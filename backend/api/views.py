@@ -509,4 +509,3 @@ class GroupAnalyticsDashboard(APIView):
             return "Balanced"
         else:
             return "Low"
-        
