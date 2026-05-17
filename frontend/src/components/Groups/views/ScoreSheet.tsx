@@ -278,44 +278,57 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
 
     if (!tasksContainer || !studentsContainer) return;
 
-    // Sync vertical scrolling when user uses trackpads or native scrollbars directly
+    let activeDriver: HTMLDivElement | null = null;
+
     const handleTasksScroll = () => {
-      if (studentsContainer.scrollTop !== tasksContainer.scrollTop) {
+      // If tasks grid is driving the vertical scroll, mirror it to the students list
+      if (activeDriver === null) activeDriver = tasksContainer;
+      if (activeDriver === tasksContainer) {
         studentsContainer.scrollTop = tasksContainer.scrollTop;
       }
       setScrollLeft(tasksContainer.scrollLeft);
     };
 
     const handleStudentsScroll = () => {
-      if (tasksContainer.scrollTop !== studentsContainer.scrollTop) {
+      // If students list is driving the vertical scroll, mirror it to the tasks grid
+      if (activeDriver === null) activeDriver = studentsContainer;
+      if (activeDriver === studentsContainer) {
         tasksContainer.scrollTop = studentsContainer.scrollTop;
       }
     };
 
-    // Original horizontal wheel scroll feature, modified to also process standard vertical scrolls
+    const handleScrollEnd = () => {
+      activeDriver = null;
+    };
+
+    // Attach native viewport scrolling sync
+    tasksContainer.addEventListener('scroll', handleTasksScroll, {
+      passive: true,
+    });
+    studentsContainer.addEventListener('scroll', handleStudentsScroll, {
+      passive: true,
+    });
+    tasksContainer.addEventListener('scrollend', handleScrollEnd);
+    studentsContainer.addEventListener('scrollend', handleScrollEnd);
+
+    // Keep your custom mouse-wheel trackpad functionality intact
     const handleWheel = (e: WheelEvent) => {
-      // If holding shift OR scrolling strongly horizontal, perform standard slider scroll
       if (e.deltaX !== 0 || e.shiftKey) {
         e.preventDefault();
         tasksContainer.scrollBy({
           left: e.deltaX || e.deltaY,
           behavior: 'auto',
         });
-      } else if (e.deltaY !== 0) {
-        // Standard up/down wheel scroll links both layout sheets together vertically
-        e.preventDefault();
-        tasksContainer.scrollTop += e.deltaY;
-        studentsContainer.scrollTop = tasksContainer.scrollTop;
       }
     };
 
-    tasksContainer.addEventListener('scroll', handleTasksScroll);
-    studentsContainer.addEventListener('scroll', handleStudentsScroll);
     tasksContainer.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       tasksContainer.removeEventListener('scroll', handleTasksScroll);
       studentsContainer.removeEventListener('scroll', handleStudentsScroll);
+      tasksContainer.removeEventListener('scrollend', handleScrollEnd);
+      studentsContainer.removeEventListener('scrollend', handleScrollEnd);
       tasksContainer.removeEventListener('wheel', handleWheel);
     };
   }, [tasks, students]);
