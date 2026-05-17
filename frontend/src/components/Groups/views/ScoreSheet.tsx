@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Eye, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, ChevronLeft, ChevronRight, Eye, Lock } from 'lucide-react';
 import '../../../styles/ScoreSheet.css';
 import { supabase } from '../../../supabaseClient';
 
@@ -15,6 +15,12 @@ interface Task {
   max_score?: number;
   final_score?: number;
   assigned_to?: string;
+}
+
+interface Score {
+  student_id: string;
+  task_id: string;
+  score: number;
 }
 
 interface ScoreSheetProps {
@@ -39,6 +45,9 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const tasksContainerRef = useRef<HTMLDivElement>(null);
+  const studentsContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch tasks for the group
   useEffect(() => {
@@ -204,7 +213,10 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
         }
 
         if (updatedScore !== null) {
-          taskUpdates.push({ id: task.id, final_score: updatedScore });
+          taskUpdates.push({
+            id: task.id,
+            final_score: updatedScore,
+          });
         }
       });
 
@@ -218,6 +230,10 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
         const results = await Promise.all(updatePromises);
         const errors = results.filter((r) => r.error);
         if (errors.length > 0) {
+          console.error(
+            'Task update errors:',
+            errors.map((e) => e.error)
+          );
           throw new Error('Failed to update some task scores');
         }
       }
@@ -227,7 +243,6 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
         typeof groupProjectScore === 'number'
           ? groupProjectScore
           : parseFloat(groupProjectScore as string) || 0;
-
       students.forEach((student) => {
         projectScoresArray.push({
           group_id: groupId,
@@ -241,7 +256,10 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
           .from('project_scores')
           .upsert(projectScoresArray, { onConflict: 'group_id,student_id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Project score upsert error:', error);
+          throw error;
+        }
       }
 
       alert('Scores saved successfully!');
@@ -253,13 +271,75 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
     }
   };
 
+  /* FIXED VERTICAL SCROLL: Syncs vertical positions across columns on wheel/scrollbar actions */
+  useEffect(() => {
+    const tasksContainer = tasksContainerRef.current;
+    const studentsContainer = studentsContainerRef.current;
+
+    if (!tasksContainer || !studentsContainer) return;
+
+    // Sync vertical scrolling when user uses trackpads or native scrollbars directly
+    const handleTasksScroll = () => {
+      if (studentsContainer.scrollTop !== tasksContainer.scrollTop) {
+        studentsContainer.scrollTop = tasksContainer.scrollTop;
+      }
+      setScrollLeft(tasksContainer.scrollLeft);
+    };
+
+    const handleStudentsScroll = () => {
+      if (tasksContainer.scrollTop !== studentsContainer.scrollTop) {
+        tasksContainer.scrollTop = studentsContainer.scrollTop;
+      }
+    };
+
+    // Original horizontal wheel scroll feature, modified to also process standard vertical scrolls
+    const handleWheel = (e: WheelEvent) => {
+      // If holding shift OR scrolling strongly horizontal, perform standard slider scroll
+      if (e.deltaX !== 0 || e.shiftKey) {
+        e.preventDefault();
+        tasksContainer.scrollBy({
+          left: e.deltaX || e.deltaY,
+          behavior: 'auto',
+        });
+      } else if (e.deltaY !== 0) {
+        // Standard up/down wheel scroll links both layout sheets together vertically
+        e.preventDefault();
+        tasksContainer.scrollTop += e.deltaY;
+        studentsContainer.scrollTop = tasksContainer.scrollTop;
+      }
+    };
+
+    tasksContainer.addEventListener('scroll', handleTasksScroll);
+    studentsContainer.addEventListener('scroll', handleStudentsScroll);
+    tasksContainer.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      tasksContainer.removeEventListener('scroll', handleTasksScroll);
+      studentsContainer.removeEventListener('scroll', handleStudentsScroll);
+      tasksContainer.removeEventListener('wheel', handleWheel);
+    };
+  }, [tasks, students]);
+
+  const scrollTasks = (direction: 'left' | 'right') => {
+    const container = tasksContainerRef.current;
+    if (container) {
+      const scrollAmount = 200;
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="score-sheet-wrapper">
-        <div className="score-sheet-container flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading score sheet...</p>
+        <div className="score-sheet-container">
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading score sheet...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -269,7 +349,7 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
   return (
     <div className="score-sheet-wrapper">
       <div className="score-sheet-container">
-        {/* Header Block */}
+        {/* Header */}
         <div className="score-sheet-header">
           <div>
             <h2>Score Sheet</h2>
@@ -292,59 +372,53 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
           )}
         </div>
 
-        {/* Unified Table Grid Container */}
-        <div className="score-sheet-main overflow-auto max-h-[60vh] border border-gray-200 rounded-lg bg-white">
-          <table className="w-full border-collapse table-fixed">
-            {/* Table Header Axis */}
-            <thead className="sticky top-0 z-30 bg-gray-50 shadow-sm">
-              <tr>
-                {/* Fixed Student Pinned Cell Box */}
-                <th className="sticky left-0 top-0 z-40 bg-gray-100 text-left px-4 py-3 border-b border-r border-gray-200 text-xs font-bold text-gray-600 tracking-wider w-56">
-                  STUDENTS
-                </th>
-                {tasks.map((task) => (
-                  <th
-                    key={task.id}
-                    className="px-4 py-3 border-b border-r border-gray-200 text-center min-w-[120px] bg-gray-50"
-                  >
-                    <div
-                      className="text-xs font-semibold text-gray-700 truncate"
-                      title={task.title}
-                    >
-                      {task.title}
-                    </div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">
-                      Max: {task.max_score || 100}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            {/* Table Body Rows Grid */}
-            <tbody className="divide-y divide-gray-100">
+        {/* Main Content */}
+        <div className="score-sheet-main">
+          {/* Students Column */}
+          <div className="students-column" ref={studentsContainerRef}>
+            <div className="students-header">STUDENTS</div>
+            <div className="students-list">
               {students.map((student) => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-gray-50/50 transition-colors"
-                >
-                  {/* Sticky Pinned Student Cell Column */}
-                  <td className="sticky left-0 z-10 bg-white px-4 py-3 border-r border-gray-200 font-medium text-sm text-gray-800 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    <div
-                      className="truncate"
-                      title={student.full_name || student.username}
-                    >
-                      {student.full_name || student.username}
-                    </div>
-                  </td>
+                <div key={student.id} className="student-row">
+                  <div className="student-name">
+                    {student.full_name || student.username}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                  {/* Dynamic Score Core Cells */}
+          {/* Tasks Grid */}
+          <div className="tasks-grid-wrapper" ref={tasksContainerRef}>
+            {tasks.length === 0 ? (
+              <div className="flex items-center justify-center h-full p-8">
+                <div className="text-center text-gray-500">
+                  <p className="font-semibold">No tasks yet</p>
+                  <p className="text-sm">Create tasks to start grading</p>
+                </div>
+              </div>
+            ) : (
+              <div className="tasks-grid">
+                {/* Task Headers */}
+                <div className="grid-row header-row sticky-header">
                   {tasks.map((task) => (
-                    <td
-                      key={`${student.id}-${task.id}`}
-                      className="p-2 border-r border-gray-200 relative text-center"
-                    >
-                      <div className="relative inline-block w-full">
+                    <div key={task.id} className="grid-cell header-cell">
+                      <div className="task-title">{task.title}</div>
+                      <div className="task-max-score">
+                        Max: {task.max_score || 100}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Student Scores */}
+                {students.map((student) => (
+                  <div key={student.id} className="grid-row">
+                    {tasks.map((task) => (
+                      <div
+                        key={`${student.id}-${task.id}`}
+                        className="grid-cell"
+                      >
                         <input
                           type="number"
                           min="0"
@@ -352,7 +426,7 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                           value={
                             scores
                               .get(String(student.id))
-                              ?.get(String(task.id)) ?? ''
+                              ?.get(String(task.id)) || ''
                           }
                           onChange={(e) =>
                             handleScoreChange(
@@ -362,69 +436,78 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                             )
                           }
                           placeholder="0"
-                          className={`w-full text-center py-1 px-2 border border-gray-200 rounded text-sm focus:outline-blue-500 ${
-                            !isStaff
-                              ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
-                              : 'bg-white'
-                          }`}
+                          className={`score-input ${!isStaff ? 'read-only' : ''}`}
                           disabled={!isStaff}
                         />
                         {!isStaff && (
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
-                            <Lock size={11} />
+                          <div className="read-only-indicator">
+                            <Lock size={12} />
                           </div>
                         )}
                       </div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
+                    ))}
+                  </div>
+                ))}
 
-              {/* Task Matrix Averages row */}
-              {tasks.length > 0 && (
-                <tr className="bg-gray-50/70 font-semibold border-t border-gray-300">
-                  <td className="sticky left-0 z-10 bg-gray-50 px-4 py-3 border-r border-gray-200 text-xs uppercase text-gray-500 tracking-wider font-bold shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    Average
-                  </td>
+                {/* Average Row */}
+                <div className="grid-row average-row">
                   {tasks.map((task) => (
-                    <td
+                    <div
                       key={`avg-${task.id}`}
-                      className="px-4 py-3 text-center border-r border-gray-200 text-sm text-gray-700"
+                      className="grid-cell average-cell"
                     >
-                      {getTaskAverage(task.id).toFixed(1)}
-                    </td>
+                      <span className="average-value">
+                        {getTaskAverage(task.id).toFixed(1)}
+                      </span>
+                    </div>
                   ))}
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Scroll Controls */}
+          {tasks.length > 5 && (
+            <div className="scroll-controls">
+              <button
+                onClick={() => scrollTasks('left')}
+                className="scroll-btn"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={() => scrollTasks('right')}
+                className="scroll-btn"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Summary Card Area */}
-        <div className="score-sheet-summary mt-4">
+        {/* Summary Section */}
+        <div className="score-sheet-summary">
           <div className="summary-grid">
-            <div className="summary-card bg-white p-4 border border-gray-200 rounded-lg shadow-sm max-w-xs">
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Project Score:
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={groupProjectScore}
-                  onChange={(e) => {
-                    if (!isStaff) return;
-                    const val = e.target.value;
-                    setGroupProjectScore(
-                      val === '' ? '' : Math.max(0, parseFloat(val) || 0)
-                    );
-                  }}
-                  placeholder="0"
-                  className={`w-full py-1.5 px-3 border border-gray-200 rounded text-sm focus:outline-blue-500 text-center ${
-                    !isStaff ? 'bg-gray-50 text-gray-500' : ''
-                  }`}
-                  disabled={!isStaff}
-                />
+            <div className="summary-card">
+              <div className="summary-inputs">
+                <div className="summary-input-group">
+                  <label>Project Score:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={groupProjectScore}
+                    onChange={(e) => {
+                      if (!isStaff) return;
+                      const val = e.target.value;
+                      setGroupProjectScore(
+                        val === '' ? '' : Math.max(0, parseFloat(val) || 0)
+                      );
+                    }}
+                    placeholder="0"
+                    className={`summary-input ${!isStaff ? 'read-only' : ''}`}
+                    disabled={!isStaff}
+                  />
+                </div>
               </div>
             </div>
           </div>
