@@ -18,6 +18,15 @@
   height: 100%;
 }
 
+/* ADD THIS FIX FOR THE HEADER ROW: 
+   This ensures the Task headers stick to the top of the parent alongside the Student header */
+.grid-row.header-row.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f8fafc; /* Matches grid background to hide rows sliding underneath */
+}
+
 .score-sheet-header {
   display: flex;
   justify-content: space-between;
@@ -62,10 +71,12 @@
 /* Main Content */
 .score-sheet-main {
   display: flex;
-  flex: 1;
-  overflow: hidden;
-  gap: 0;
   position: relative;
+  max-height: 60vh; /* Changed from max-h to standard max-height */
+  overflow-y: auto; /* This captures the mouse wheel and scrolls BOTH columns together */
+  overflow-x: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
 }
 
 /* Students Column */
@@ -76,7 +87,9 @@
   display: flex;
   flex-direction: column;
   background: #f8fafc;
-  overflow-y: auto;
+
+  /* FIXED: Changed to hidden so it stops scrolling independently from the grid */
+  overflow-y: hidden;
 }
 
 .students-header {
@@ -87,6 +100,8 @@
   font-size: 14px;
   text-align: center;
   flex-shrink: 0;
+
+  /* Keep this sticky so it stays visible at the top of .score-sheet-main */
   position: sticky;
   top: 0;
   z-index: 10;
@@ -123,7 +138,7 @@
 .tasks-grid-wrapper {
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: hidden; /* Perfect—keeps the grid from creating its own vertical track */
   position: relative;
 }
 
