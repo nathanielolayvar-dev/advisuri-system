@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 
@@ -47,7 +47,6 @@ export const TimelineView = ({
     }
   };
 
-  // Fetch on load and when group changes
   useEffect(() => {
     fetchTimelineData();
   }, [groupId]);
@@ -198,10 +197,15 @@ export const TimelineView = ({
     }
   };
 
+  // Dynamically scale the timeline column track width based on length of dates
+  const gridMinWidth = useMemo(() => {
+    return Math.max(500, timelineDates.length * 70);
+  }, [timelineDates]);
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col select-none">
       {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-slate-100">
+      <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-slate-100 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Clock className="w-5 h-5 text-white" />
@@ -236,7 +240,7 @@ export const TimelineView = ({
         </div>
       </div>
 
-      {/* Content */}
+      {/* Main Container Layer: Handles outer vertical and horizontal scrolling together */}
       <div className="flex-1 overflow-auto p-6 bg-slate-50">
         {loading ? (
           <div className="flex items-center justify-center h-full">
@@ -253,135 +257,159 @@ export const TimelineView = ({
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Date Header Row */}
-            <div className="flex bg-slate-50 border-b border-slate-100 overflow-x-auto">
-              <div className="w-56 flex-shrink-0 px-4 py-3">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Task
-                </span>
-              </div>
-              <div className="flex-1 flex">
-                {timelineDates.map((date, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 text-center py-3 border-l border-slate-100 min-w-[60px] ${
-                      isToday(date) ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <span
-                      className={`text-xs font-medium ${
-                        isToday(date) ? 'text-blue-600' : 'text-slate-500'
+          /* Single unified chart element */
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <div style={{ minWidth: `${224 + gridMinWidth}px` }}>
+              {/* Date Header Row */}
+              <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-20">
+                {/* Fixed Task column title */}
+                <div className="w-56 flex-shrink-0 px-4 py-3 bg-slate-50 sticky left-0 border-r border-slate-200 z-30">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Task Name
+                  </span>
+                </div>
+
+                {/* Linked Columns tracks */}
+                <div
+                  className="flex-1 flex"
+                  style={{ minWidth: `${gridMinWidth}px` }}
+                >
+                  {timelineDates.map((date, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 text-center py-3 border-r border-slate-100 last:border-r-0 min-w-[60px] ${
+                        isToday(date) ? 'bg-blue-50/70 shadow-inner' : ''
                       }`}
                     >
-                      {formatDateHeader(date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Task Rows */}
-            {sortedTasks.map((task) => {
-              const dayIndex = getTaskDayIndex(task.due_date);
-              const maxDay = Math.max(timelineDates.length - 1, 1);
-              const leftPercent = (dayIndex / maxDay) * 100;
-              const widthPercent = Math.max(10, 100 / maxDay);
-              const taskColor =
-                task.status === 'completed'
-                  ? '#22C55E'
-                  : getPriorityColor(task.priority);
-              const isTaskOverdue =
-                isOverdue(task.due_date) && task.status !== 'completed';
-
-              return (
-                <div
-                  key={task.id}
-                  className={`flex border-b border-slate-100 hover:bg-slate-50 transition-colors relative overflow-x-auto ${
-                    task.progress_percentage === 100
-                      ? 'opacity-75 bg-emerald-50'
-                      : ''
-                  }`}
-                >
-                  {task.progress_percentage === 100 && (
-                    <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full font-semibold z-10">
-                      ✓ Completed
+                      <span
+                        className={`text-xs font-semibold block ${
+                          isToday(date)
+                            ? 'text-blue-600 font-bold'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        {formatDateHeader(date)}
+                      </span>
                     </div>
-                  )}
-                  <div className="w-56 flex-shrink-0 px-4 py-4">
-                    <div className="flex items-center gap-3">
+                  ))}
+                </div>
+              </div>
+
+              {/* Task Rows Block */}
+              <div className="divide-y divide-slate-100">
+                {sortedTasks.map((task) => {
+                  const dayIndex = getTaskDayIndex(task.due_date);
+                  const maxDay = Math.max(timelineDates.length - 1, 1);
+                  const leftPercent = (dayIndex / maxDay) * 100;
+                  const widthPercent = Math.max(8, 100 / maxDay);
+                  const taskColor =
+                    task.status === 'completed'
+                      ? '#22C55E'
+                      : getPriorityColor(task.priority);
+                  const isTaskOverdue =
+                    isOverdue(task.due_date) && task.status !== 'completed';
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-stretch hover:bg-slate-50/80 transition-colors relative ${
+                        task.progress_percentage === 100
+                          ? 'bg-emerald-50/20'
+                          : ''
+                      }`}
+                    >
+                      {/* Sticky Left Task Title Card */}
+                      <div className="w-56 flex-shrink-0 px-4 py-4 bg-white border-r border-slate-200 sticky left-0 z-10 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                        <div className="flex items-center gap-3 min-w-0 w-full">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: taskColor }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h5
+                              className="font-semibold text-sm text-slate-800 truncate"
+                              title={task.title}
+                            >
+                              {task.title}
+                            </h5>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span
+                                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                  task.status === 'completed'
+                                    ? 'bg-green-100 text-green-700'
+                                    : task.status === 'in-progress'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {task.status === 'completed'
+                                  ? 'Done'
+                                  : task.status === 'in-progress'
+                                    ? 'In Progress'
+                                    : 'Pending'}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                {task.progress_percentage || 0}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Unified Timeline Track view */}
                       <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: taskColor }}
-                      />
-                      <div className="min-w-0">
-                        <h5 className="font-semibold text-sm text-slate-800 truncate">
-                          {task.title}
-                        </h5>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                              task.status === 'completed'
-                                ? 'bg-green-100 text-green-700'
-                                : task.status === 'in-progress'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {task.status === 'completed'
-                              ? 'Done'
-                              : task.status === 'in-progress'
-                                ? 'In Progress'
-                                : 'Pending'}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {task.progress_percentage || 0}%
-                          </span>
+                        className="flex-1 relative h-16"
+                        style={{ minWidth: `${gridMinWidth}px` }}
+                      >
+                        {/* Background Grid Bars */}
+                        <div className="absolute inset-0 flex">
+                          {timelineDates.map((date, i) => (
+                            <div
+                              key={i}
+                              className={`flex-1 border-r border-slate-100 last:border-r-0 ${
+                                isToday(date) ? 'bg-blue-50/20' : ''
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Gantt Render Bar */}
+                        <div
+                          className="absolute top-3 h-10 rounded-lg shadow-sm transition-all duration-300 flex items-center overflow-hidden"
+                          style={{
+                            left: `${leftPercent}%`,
+                            width: `${widthPercent}%`,
+                            backgroundColor: isTaskOverdue
+                              ? '#EF4444'
+                              : taskColor,
+                          }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/10" />
+                          <div
+                            className="h-full bg-black/15 transition-all duration-500"
+                            style={{
+                              width: `${task.progress_percentage || 0}%`,
+                            }}
+                          />
+                          {task.progress_percentage &&
+                            task.progress_percentage > 25 && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white drop-shadow-sm">
+                                {task.progress_percentage}%
+                              </span>
+                            )}
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex-1 relative h-16 min-w-[500px]">
-                    <div className="absolute inset-0 flex">
-                      {timelineDates.map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 border-l border-slate-100"
-                        />
-                      ))}
-                    </div>
-
-                    <div
-                      className="absolute top-3 h-10 rounded-lg shadow-sm transition-all duration-300"
-                      style={{
-                        left: `${leftPercent}%`,
-                        width: `${widthPercent}%`,
-                        backgroundColor: isTaskOverdue ? '#EF4444' : taskColor,
-                      }}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/10 rounded-lg" />
-                      <div
-                        className="h-full bg-black/10 rounded-lg"
-                        style={{ width: `${task.progress_percentage || 0}%` }}
-                      />
-                      {task.progress_percentage &&
-                        task.progress_percentage > 20 && (
-                          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
-                            {task.progress_percentage}%
-                          </span>
-                        )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
         {/* Footer Stats */}
         {tasks.length > 0 && (
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex-shrink-0">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-blue-600" />
