@@ -18,15 +18,6 @@
   height: 100%;
 }
 
-/* ADD THIS FIX FOR THE HEADER ROW: 
-   This ensures the Task headers stick to the top of the parent alongside the Student header */
-.grid-row.header-row.sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #f8fafc; /* Matches grid background to hide rows sliding underneath */
-}
-
 .score-sheet-header {
   display: flex;
   justify-content: space-between;
@@ -68,13 +59,15 @@
   cursor: not-allowed;
 }
 
-/* Main Content */
+/* ==========================================================================
+   Main Content Layout Frame (RE-BUILT SHIELD FOR VERTICAL SYNC)
+   ========================================================================== */
 .score-sheet-main {
   display: flex;
   position: relative;
-  max-height: 60vh; /* Changed from max-h to standard max-height */
-  overflow-y: auto; /* This captures the mouse wheel and scrolls BOTH columns together */
-  overflow-x: hidden;
+  max-height: 60vh;
+  overflow-y: auto; /* FIXED: This serves as the master vertical scroll tracker */
+  overflow-x: hidden; /* Prevents general structural breakages */
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
 }
@@ -87,9 +80,7 @@
   display: flex;
   flex-direction: column;
   background: #f8fafc;
-
-  /* FIXED: Changed to hidden so it stops scrolling independently from the grid */
-  overflow-y: hidden;
+  overflow: hidden; /* FIXED: Shut off separate scroll tracks */
 }
 
 .students-header {
@@ -100,23 +91,22 @@
   font-size: 14px;
   text-align: center;
   flex-shrink: 0;
-
-  /* Keep this sticky so it stays visible at the top of .score-sheet-main */
-  position: sticky;
+  position: sticky; /* FIXED: Floats correctly at the very top */
   top: 0;
   z-index: 10;
 }
 
 .students-list {
   flex: 1;
-  overflow-y: auto;
-  padding-bottom: 60px;
+  overflow: hidden; /* FIXED: Inherits parent vertical position naturally */
+  padding-bottom: 0px; /* Cleaned dead space bounds */
 }
 
 .student-row {
   padding: 12px 16px;
   border-bottom: 1px solid #e1e8ed;
   min-height: 45px;
+  height: 45px; /* FIXED: Locked row height value for matching rows */
   display: flex;
   align-items: center;
   font-size: 13px;
@@ -131,14 +121,16 @@
 .student-name {
   font-weight: 500;
   color: #1e293b;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Keeps long names elegant */
 }
 
 /* Tasks Grid Wrapper */
 .tasks-grid-wrapper {
   flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden; /* Perfect—keeps the grid from creating its own vertical track */
+  overflow-x: auto; /* FIXED: Native horizontal tracking rules */
+  overflow-y: hidden; /* FIXED: Blocks internal broken vertical scrollbars */
   position: relative;
 }
 
@@ -169,6 +161,7 @@
   display: flex;
   flex-direction: row;
   min-height: 45px;
+  height: 45px; /* FIXED: Row alignment matching student-row */
 }
 
 .grid-row:nth-child(odd) {
@@ -183,7 +176,7 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   font-weight: 700;
   color: white;
-  position: sticky;
+  position: sticky; /* FIXED: Follows alongside student header component */
   top: 0;
   z-index: 5;
 }
@@ -424,21 +417,21 @@
   border-color: #e1e8ed;
 }
 
-/* Scrollbar Styles */
-.students-list::-webkit-scrollbar {
+/* Master Shared Scrollbar Styles */
+.score-sheet-main::-webkit-scrollbar {
   width: 6px;
 }
 
-.students-list::-webkit-scrollbar-track {
+.score-sheet-main::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
 
-.students-list::-webkit-scrollbar-thumb {
+.score-sheet-main::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
 
-.students-list::-webkit-scrollbar-thumb:hover {
+.score-sheet-main::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
@@ -501,6 +494,7 @@
 @media (max-width: 768px) {
   .score-sheet-main {
     flex-direction: column;
+    overflow-y: auto;
   }
 
   .students-column {

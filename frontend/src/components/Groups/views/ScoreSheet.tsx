@@ -274,64 +274,37 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
   /* FIXED VERTICAL SCROLL: Syncs vertical positions across columns on wheel/scrollbar actions */
   useEffect(() => {
     const tasksContainer = tasksContainerRef.current;
-    const studentsContainer = studentsContainerRef.current;
+    if (!tasksContainer) return;
 
-    if (!tasksContainer || !studentsContainer) return;
-
-    let activeDriver: HTMLDivElement | null = null;
-
-    const handleTasksScroll = () => {
-      // If tasks grid is driving the vertical scroll, mirror it to the students list
-      if (activeDriver === null) activeDriver = tasksContainer;
-      if (activeDriver === tasksContainer) {
-        studentsContainer.scrollTop = tasksContainer.scrollTop;
-      }
-      setScrollLeft(tasksContainer.scrollLeft);
-    };
-
-    const handleStudentsScroll = () => {
-      // If students list is driving the vertical scroll, mirror it to the tasks grid
-      if (activeDriver === null) activeDriver = studentsContainer;
-      if (activeDriver === studentsContainer) {
-        tasksContainer.scrollTop = studentsContainer.scrollTop;
-      }
-    };
-
-    const handleScrollEnd = () => {
-      activeDriver = null;
-    };
-
-    // Attach native viewport scrolling sync
-    tasksContainer.addEventListener('scroll', handleTasksScroll, {
-      passive: true,
-    });
-    studentsContainer.addEventListener('scroll', handleStudentsScroll, {
-      passive: true,
-    });
-    tasksContainer.addEventListener('scrollend', handleScrollEnd);
-    studentsContainer.addEventListener('scrollend', handleScrollEnd);
-
-    // Keep your custom mouse-wheel trackpad functionality intact
     const handleWheel = (e: WheelEvent) => {
+      // If the user is scrolling horizontally or holding Shift, shift the task grid left/right
       if (e.deltaX !== 0 || e.shiftKey) {
         e.preventDefault();
         tasksContainer.scrollBy({
           left: e.deltaX || e.deltaY,
           behavior: 'auto',
         });
+        setScrollLeft(tasksContainer.scrollLeft);
       }
+      // Vertical scrolling (e.deltaY) is intentionally left completely alone here.
+      // The browser and your updated CSS parent layout handle it natively now!
+    };
+
+    // Listen for the horizontal updates
+    const handleHorizontalScroll = () => {
+      setScrollLeft(tasksContainer.scrollLeft);
     };
 
     tasksContainer.addEventListener('wheel', handleWheel, { passive: false });
+    tasksContainer.addEventListener('scroll', handleHorizontalScroll, {
+      passive: true,
+    });
 
     return () => {
-      tasksContainer.removeEventListener('scroll', handleTasksScroll);
-      studentsContainer.removeEventListener('scroll', handleStudentsScroll);
-      tasksContainer.removeEventListener('scrollend', handleScrollEnd);
-      studentsContainer.removeEventListener('scrollend', handleScrollEnd);
       tasksContainer.removeEventListener('wheel', handleWheel);
+      tasksContainer.removeEventListener('scroll', handleHorizontalScroll);
     };
-  }, [tasks, students]);
+  }, [tasks]);
 
   const scrollTasks = (direction: 'left' | 'right') => {
     const container = tasksContainerRef.current;
