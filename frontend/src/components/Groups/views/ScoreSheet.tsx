@@ -27,17 +27,19 @@ interface ScoreSheetProps {
   groupId: string;
   students: Student[];
   isStaff: boolean;
-  currentUserId: string;
 }
 
 export const ScoreSheet: React.FC<ScoreSheetProps> = ({
   groupId,
   students,
   isStaff,
-  currentUserId,
 }) => {
-  const [scores, setScores] = useState<Map<string, Map<string, number>>>(new Map());
-  const [groupProjectScore, setGroupProjectScore] = useState<number | string>('');
+  const [scores, setScores] = useState<Map<string, Map<string, number>>>(
+    new Map()
+  );
+  const [groupProjectScore, setGroupProjectScore] = useState<number | string>(
+    ''
+  );
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -112,18 +114,24 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
         setScores(scoreMap);
 
         // Fetch project and overall scores
-        const { data: projectScoresData, error: projectScoreError } = await supabase
-          .from('project_scores')
-          .select('*')
-          .eq('group_id', groupId)
-          .in('student_id', students.map(s => s.id));
+        const { data: projectScoresData, error: projectScoreError } =
+          await supabase
+            .from('project_scores')
+            .select('*')
+            .eq('group_id', groupId)
+            .in(
+              'student_id',
+              students.map((s) => s.id)
+            );
 
         if (projectScoreError) {
           console.error('Error fetching project scores:', projectScoreError);
         }
 
         if (projectScoresData && projectScoresData.length > 0) {
-          setGroupProjectScore(parseFloat(projectScoresData[0].project_score) || 0);
+          setGroupProjectScore(
+            parseFloat(projectScoresData[0].project_score) || 0
+          );
         }
       } catch (error) {
         console.error('Error fetching scores:', error);
@@ -137,21 +145,26 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
     }
   }, [groupId, tasks, students]);
 
-  const handleScoreChange = (studentId: string, taskId: string, value: string) => {
+  const handleScoreChange = (
+    studentId: string,
+    taskId: string,
+    value: string
+  ) => {
     if (!isStaff) return; // Only teachers can edit
-    
+
     const sId = String(studentId);
     const tId = String(taskId);
     const numValue = Math.max(0, parseFloat(value) || 0);
     const newScores = new Map(scores);
-    
-    const task = tasks.find(t => String(t.id) === tId);
-    
+
+    const task = tasks.find((t) => String(t.id) === tId);
+
     if (task && !task.assigned_to) {
       // Update for all students in the UI simultaneously since it's a group task
-      students.forEach(student => {
+      students.forEach((student) => {
         const studentStrId = String(student.id);
-        if (!newScores.has(studentStrId)) newScores.set(studentStrId, new Map());
+        if (!newScores.has(studentStrId))
+          newScores.set(studentStrId, new Map());
         newScores.get(studentStrId)!.set(tId, numValue);
       });
     } else {
@@ -160,7 +173,7 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
       }
       newScores.get(sId)!.set(tId, numValue);
     }
-    
+
     setScores(newScores);
   };
 
@@ -180,15 +193,15 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
 
   const handleSave = async () => {
     if (!isStaff) return; // Only teachers can save
-    
+
     setSaving(true);
     try {
       const taskUpdates: { id: string; final_score: number }[] = [];
-      
+
       tasks.forEach((task) => {
         const tId = String(task.id);
         let updatedScore: number | null = null;
-        
+
         if (task.assigned_to) {
           const sId = String(task.assigned_to);
           if (scores.has(sId)) {
@@ -202,26 +215,35 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
         if (updatedScore !== null) {
           taskUpdates.push({
             id: task.id,
-            final_score: updatedScore
+            final_score: updatedScore,
           });
         }
       });
 
       if (taskUpdates.length > 0) {
-        const updatePromises = taskUpdates.map(t => 
-          supabase.from('tasks').update({ final_score: t.final_score }).eq('id', t.id)
+        const updatePromises = taskUpdates.map((t) =>
+          supabase
+            .from('tasks')
+            .update({ final_score: t.final_score })
+            .eq('id', t.id)
         );
         const results = await Promise.all(updatePromises);
-        const errors = results.filter(r => r.error);
+        const errors = results.filter((r) => r.error);
         if (errors.length > 0) {
-          console.error("Task update errors:", errors.map(e => e.error));
-          throw new Error("Failed to update some task scores");
+          console.error(
+            'Task update errors:',
+            errors.map((e) => e.error)
+          );
+          throw new Error('Failed to update some task scores');
         }
       }
 
       // Save project and overall scores if any
       const projectScoresArray: any[] = [];
-      const finalProjectScore = typeof groupProjectScore === 'number' ? groupProjectScore : parseFloat(groupProjectScore as string) || 0;
+      const finalProjectScore =
+        typeof groupProjectScore === 'number'
+          ? groupProjectScore
+          : parseFloat(groupProjectScore as string) || 0;
       students.forEach((student) => {
         projectScoresArray.push({
           group_id: groupId,
@@ -236,7 +258,7 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
           .upsert(projectScoresArray, { onConflict: 'group_id,student_id' });
 
         if (error) {
-          console.error("Project score upsert error:", error);
+          console.error('Project score upsert error:', error);
           throw error;
         }
       }
@@ -335,10 +357,7 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
           </div>
 
           {/* Tasks Grid */}
-          <div
-            className="tasks-grid-wrapper"
-            ref={tasksContainerRef}
-          >
+          <div className="tasks-grid-wrapper" ref={tasksContainerRef}>
             {tasks.length === 0 ? (
               <div className="flex items-center justify-center h-full p-8">
                 <div className="text-center text-gray-500">
@@ -352,8 +371,10 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                 <div className="grid-row header-row sticky-header">
                   {tasks.map((task) => (
                     <div key={task.id} className="grid-cell header-cell">
-                  <div className="task-title">{task.title}</div>
-                      <div className="task-max-score">Max: {task.max_score || 100}</div>
+                      <div className="task-title">{task.title}</div>
+                      <div className="task-max-score">
+                        Max: {task.max_score || 100}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -362,14 +383,25 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                 {students.map((student) => (
                   <div key={student.id} className="grid-row">
                     {tasks.map((task) => (
-                      <div key={`${student.id}-${task.id}`} className="grid-cell">
+                      <div
+                        key={`${student.id}-${task.id}`}
+                        className="grid-cell"
+                      >
                         <input
                           type="number"
                           min="0"
                           max={task.max_score || 100}
-                        value={scores.get(String(student.id))?.get(String(task.id)) || ''}
+                          value={
+                            scores
+                              .get(String(student.id))
+                              ?.get(String(task.id)) || ''
+                          }
                           onChange={(e) =>
-                          handleScoreChange(String(student.id), String(task.id), e.target.value)
+                            handleScoreChange(
+                              String(student.id),
+                              String(task.id),
+                              e.target.value
+                            )
                           }
                           placeholder="0"
                           className={`score-input ${!isStaff ? 'read-only' : ''}`}
@@ -388,7 +420,10 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                 {/* Average Row */}
                 <div className="grid-row average-row">
                   {tasks.map((task) => (
-                    <div key={`avg-${task.id}`} className="grid-cell average-cell">
+                    <div
+                      key={`avg-${task.id}`}
+                      className="grid-cell average-cell"
+                    >
                       <span className="average-value">
                         {getTaskAverage(task.id).toFixed(1)}
                       </span>
@@ -402,10 +437,16 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
           {/* Scroll Controls */}
           {tasks.length > 5 && (
             <div className="scroll-controls">
-              <button onClick={() => scrollTasks('left')} className="scroll-btn">
+              <button
+                onClick={() => scrollTasks('left')}
+                className="scroll-btn"
+              >
                 <ChevronLeft size={18} />
               </button>
-              <button onClick={() => scrollTasks('right')} className="scroll-btn">
+              <button
+                onClick={() => scrollTasks('right')}
+                className="scroll-btn"
+              >
                 <ChevronRight size={18} />
               </button>
             </div>
@@ -426,7 +467,9 @@ export const ScoreSheet: React.FC<ScoreSheetProps> = ({
                     onChange={(e) => {
                       if (!isStaff) return;
                       const val = e.target.value;
-                      setGroupProjectScore(val === '' ? '' : Math.max(0, parseFloat(val) || 0));
+                      setGroupProjectScore(
+                        val === '' ? '' : Math.max(0, parseFloat(val) || 0)
+                      );
                     }}
                     placeholder="0"
                     className={`summary-input ${!isStaff ? 'read-only' : ''}`}

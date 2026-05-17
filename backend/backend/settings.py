@@ -54,8 +54,17 @@ INSTALLED_APPS = [
 ]
 
 # CORS Settings
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWS_CREDENTIALS = True 
+
+CORS_ALLOWED_ORIGINS = [
+    "https://advisuri-system-orcin.vercel.app",  # Replace with your frontend Vercel URL
+]
+
+# Optional: For testing on localhost during development
+CORS_ALLOWED_ORIGINS += [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # MOVED TO TOP for security check sequence

@@ -11,7 +11,9 @@ const isLocal =
 // Locally: http://127.0.0.1:8000/api
 // Vercel: /_backend/api (as defined in your vercel.json)
 const api = axios.create({
-  baseURL: isLocal ? 'http://127.0.0.1:8000/api' : '/_backend/api',
+  baseURL: isLocal
+    ? 'http://127.0.0.1:8000/api'
+    : 'https://advisuri-system-backend.vercel.app/api', // <--- explicit backend URL + /api
 });
 
 // Update Interceptor to use Supabase Session
