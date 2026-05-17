@@ -198,12 +198,13 @@ export const TimelineView = ({
   };
 
   const gridMinWidth = useMemo(() => {
-    return Math.max(500, timelineDates.length * 70);
+    return Math.max(500, timelineDates.length * 65);
   }, [timelineDates]);
 
   return (
-    <div className="h-full flex flex-col select-none">
-      {/* Header */}
+    /* FIXED PARENT TRACKER: Added h-screen and max-h-screen to contain the layout bounds */
+    <div className="h-screen max-h-screen flex flex-col select-none overflow-hidden bg-slate-50">
+      {/* Header Segment */}
       <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-slate-100 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -239,15 +240,15 @@ export const TimelineView = ({
         </div>
       </div>
 
-      {/* Main Container Layer: Handles outer vertical and horizontal scrolling together */}
-      <div className="flex-1 overflow-auto p-6 bg-slate-50">
+      {/* Main Container Wrapper - min-h-0 breaks child layout constraints safely */}
+      <div className="flex-1 min-h-0 flex flex-col p-6 gap-4">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center flex-1">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : sortedTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+          <div className="flex flex-col items-center justify-center flex-1 text-center bg-white rounded-xl border border-slate-200">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
               <Calendar className="w-8 h-8 text-slate-400" />
             </div>
             <p className="text-slate-500 font-medium">No tasks to display</p>
@@ -256,15 +257,15 @@ export const TimelineView = ({
             </p>
           </div>
         ) : (
-          /* Single unified chart element */
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto max-h-[calc(100vh-220px)]">
+          /* OPTION 1 APPLIED HERE: Added h-full and removed arbitrary viewport max bounds */
+          <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto h-full">
             <div
               style={{ minWidth: `${224 + gridMinWidth}px` }}
               className="relative"
             >
-              {/* Date Header Row - NOW STICKY TO TOP (sticky top-0 z-30) */}
-              <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-30 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-                {/* Fixed Top-Left Corner Box - Double sticky pinned axis (top-0 left-0 z-40) */}
+              {/* Date Header Row */}
+              <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+                {/* Fixed Top-Left Corner Box */}
                 <div className="w-56 flex-shrink-0 px-4 py-3 bg-slate-50 sticky top-0 left-0 border-r border-slate-200 z-40">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Task Name
@@ -279,8 +280,8 @@ export const TimelineView = ({
                   {timelineDates.map((date, i) => (
                     <div
                       key={i}
-                      className={`flex-1 text-center py-3 border-r border-slate-100 last:border-r-0 min-w-[60px] ${
-                        isToday(date) ? 'bg-blue-50/70 shadow-inner' : ''
+                      className={`flex-1 text-center py-3 border-r border-slate-100 last:border-r-0 min-w-[55px] ${
+                        isToday(date) ? 'bg-blue-50/70' : ''
                       }`}
                     >
                       <span
@@ -316,27 +317,27 @@ export const TimelineView = ({
                       key={task.id}
                       className={`flex items-stretch hover:bg-slate-50/80 transition-colors relative ${
                         task.progress_percentage === 100
-                          ? 'bg-emerald-50/20'
+                          ? 'bg-emerald-50/10'
                           : ''
                       }`}
                     >
-                      {/* Sticky Left Task Title Card - Pinned along horizontal swipe layout */}
-                      <div className="w-56 flex-shrink-0 px-4 py-4 bg-white border-r border-slate-200 sticky left-0 z-10 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                      {/* Sticky Left Task Title Card */}
+                      <div className="w-56 flex-shrink-0 px-4 py-3 bg-white border-r border-slate-200 sticky left-0 z-10 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center gap-3 min-w-0 w-full">
                           <div
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            className="w-2 h-2 rounded-full flex-shrink-0"
                             style={{ backgroundColor: taskColor }}
                           />
                           <div className="min-w-0 flex-1">
                             <h5
-                              className="font-semibold text-sm text-slate-800 truncate"
+                              className="font-semibold text-xs text-slate-800 truncate"
                               title={task.title}
                             >
                               {task.title}
                             </h5>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-0.5">
                               <span
-                                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                className={`text-[9px] font-medium px-1.5 py-0.2 rounded-full ${
                                   task.status === 'completed'
                                     ? 'bg-green-100 text-green-700'
                                     : task.status === 'in-progress'
@@ -350,7 +351,7 @@ export const TimelineView = ({
                                     ? 'In Progress'
                                     : 'Pending'}
                               </span>
-                              <span className="text-[11px] text-slate-400 font-medium">
+                              <span className="text-[10px] text-slate-400 font-medium">
                                 {task.progress_percentage || 0}%
                               </span>
                             </div>
@@ -360,7 +361,7 @@ export const TimelineView = ({
 
                       {/* Unified Timeline Track view */}
                       <div
-                        className="flex-1 relative h-16"
+                        className="flex-1 relative h-14"
                         style={{ minWidth: `${gridMinWidth}px` }}
                       >
                         {/* Background Grid Bars */}
@@ -369,7 +370,7 @@ export const TimelineView = ({
                             <div
                               key={i}
                               className={`flex-1 border-r border-slate-100 last:border-r-0 ${
-                                isToday(date) ? 'bg-blue-50/20' : ''
+                                isToday(date) ? 'bg-blue-50/10' : ''
                               }`}
                             />
                           ))}
@@ -377,7 +378,7 @@ export const TimelineView = ({
 
                         {/* Gantt Render Bar */}
                         <div
-                          className="absolute top-3 h-10 rounded-lg shadow-sm transition-all duration-300 flex items-center overflow-hidden"
+                          className="absolute top-2.5 h-8 rounded-md shadow-sm transition-all duration-300 flex items-center overflow-hidden"
                           style={{
                             left: `${leftPercent}%`,
                             width: `${widthPercent}%`,
@@ -395,7 +396,7 @@ export const TimelineView = ({
                           />
                           {task.progress_percentage &&
                             task.progress_percentage > 25 && (
-                              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white drop-shadow-sm">
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-sm">
                                 {task.progress_percentage}%
                               </span>
                             )}
@@ -409,21 +410,21 @@ export const TimelineView = ({
           </div>
         )}
 
-        {/* Footer Stats */}
+        {/* Footer Stats Tracker Card */}
         {tasks.length > 0 && (
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex-shrink-0">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold text-slate-700">
+                <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-slate-700">
                   Overall Progress
                 </span>
               </div>
-              <span className="text-sm font-bold text-slate-800">
+              <span className="text-xs font-bold text-slate-800">
                 {overallProgress}%
               </span>
             </div>
-            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
                 style={{ width: `${overallProgress}%` }}
