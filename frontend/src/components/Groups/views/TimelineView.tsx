@@ -197,7 +197,6 @@ export const TimelineView = ({
     }
   };
 
-  // Dynamically scale the timeline column track width based on length of dates
   const gridMinWidth = useMemo(() => {
     return Math.max(500, timelineDates.length * 70);
   }, [timelineDates]);
@@ -258,12 +257,15 @@ export const TimelineView = ({
           </div>
         ) : (
           /* Single unified chart element */
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-            <div style={{ minWidth: `${224 + gridMinWidth}px` }}>
-              {/* Date Header Row */}
-              <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-20">
-                {/* Fixed Task column title */}
-                <div className="w-56 flex-shrink-0 px-4 py-3 bg-slate-50 sticky left-0 border-r border-slate-200 z-30">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto max-h-[calc(100vh-220px)]">
+            <div
+              style={{ minWidth: `${224 + gridMinWidth}px` }}
+              className="relative"
+            >
+              {/* Date Header Row - NOW STICKY TO TOP (sticky top-0 z-30) */}
+              <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-30 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
+                {/* Fixed Top-Left Corner Box - Double sticky pinned axis (top-0 left-0 z-40) */}
+                <div className="w-56 flex-shrink-0 px-4 py-3 bg-slate-50 sticky top-0 left-0 border-r border-slate-200 z-40">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Task Name
                   </span>
@@ -271,7 +273,7 @@ export const TimelineView = ({
 
                 {/* Linked Columns tracks */}
                 <div
-                  className="flex-1 flex"
+                  className="flex-1 flex bg-slate-50"
                   style={{ minWidth: `${gridMinWidth}px` }}
                 >
                   {timelineDates.map((date, i) => (
@@ -318,7 +320,7 @@ export const TimelineView = ({
                           : ''
                       }`}
                     >
-                      {/* Sticky Left Task Title Card */}
+                      {/* Sticky Left Task Title Card - Pinned along horizontal swipe layout */}
                       <div className="w-56 flex-shrink-0 px-4 py-4 bg-white border-r border-slate-200 sticky left-0 z-10 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center gap-3 min-w-0 w-full">
                           <div
