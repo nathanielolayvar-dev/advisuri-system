@@ -19,7 +19,7 @@ export const UserSearchDropdown = ({
   groupId,
   currentMembers,
   onMemberAdded,
-  isStaff = true
+  isStaff = true,
 }: Props) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<User[]>([]);
@@ -30,12 +30,18 @@ export const UserSearchDropdown = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const currentMemberIds = useMemo(() => new Set(currentMembers.map(String)), [currentMembers]);
+  const currentMemberIds = useMemo(
+    () => new Set(currentMembers.map(String)),
+    [currentMembers]
+  );
 
   // Close dropdown on click outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -43,43 +49,48 @@ export const UserSearchDropdown = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const searchUsers = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      return;
-    }
+  const searchUsers = useCallback(
+    async (searchQuery: string) => {
+      if (!searchQuery.trim()) {
+        setResults([]);
+        return;
+      }
 
-    setLoading(true);
-    try {
-      // Query the 'users' table using user_id (UUID) as primary key
-      const { data, error: searchError } = await supabase
-        .from('users')
-        .select('user_id, full_name, email')
-        .eq('role', 'student')
-        .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
-        .limit(8);
+      setLoading(true);
+      try {
+        // Query the 'users' table using user_id (UUID) as primary key
+        const { data, error: searchError } = await supabase
+          .from('users')
+          .select('user_id, full_name, email')
+          .eq('role', 'student')
+          .or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .limit(8);
 
-      if (searchError) throw searchError;
+        if (searchError) throw searchError;
 
-      // Filter out already added members
-      const formatted = (data || []).map((u: any) => ({
-        user_id: u.user_id,
-        full_name: u.full_name,
-        email: u.email
-      })).filter(u => !currentMemberIds.has(u.user_id));
+        // Filter out already added members
+        const formatted = (data || [])
+          .map((u: any) => ({
+            user_id: u.user_id,
+            full_name: u.full_name,
+            email: u.email,
+          }))
+          .filter((u) => !currentMemberIds.has(u.user_id));
 
-      setResults(formatted);
-      setIsOpen(true);
-    } catch (err: any) {
-      console.error('Search error:', err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentMemberIds]);
+        setResults(formatted);
+        setIsOpen(true);
+      } catch (err: any) {
+        console.error('Search error:', err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentMemberIds]
+  );
 
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    
+
     if (query.trim().length > 0) {
       searchTimeoutRef.current = setTimeout(() => searchUsers(query), 300);
     } else {
@@ -93,12 +104,12 @@ export const UserSearchDropdown = ({
     setError(null);
 
     try {
-      const { error: addError } = await supabase
-        .from('group_members')
-        .insert([{
+      const { error: addError } = await supabase.from('group_members').insert([
+        {
           group_id: groupId,
-          user_id: userId
-        }]);
+          user_id: userId,
+        },
+      ]);
 
       if (addError) throw addError;
 
@@ -117,7 +128,10 @@ export const UserSearchDropdown = ({
   return (
     <div className="relative w-64" ref={dropdownRef}>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          size={14}
+        />
         <input
           type="text"
           placeholder="Add student..."
@@ -125,7 +139,12 @@ export const UserSearchDropdown = ({
           onChange={(e) => setQuery(e.target.value)}
           className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
         />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={14} />}
+        {loading && (
+          <Loader2
+            className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+            size={14}
+          />
+        )}
       </div>
 
       {isOpen && results.length > 0 && (
@@ -138,10 +157,18 @@ export const UserSearchDropdown = ({
               className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-left transition-colors"
             >
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-slate-700">{user.full_name}</span>
-                <span className="text-xs text-slate-400">{user.email}</span>
+                <span className="text-sm font-medium text-slate-700">
+                  {user.full_name}
+                </span>
+                {user.email && (
+                  <span className="text-xs text-slate-400">{user.email}</span>
+                )}
               </div>
-              {addingId === user.user_id ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+              {addingId === user.user_id ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <UserPlus size={14} />
+              )}
             </button>
           ))}
         </div>

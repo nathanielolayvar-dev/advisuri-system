@@ -1,12 +1,12 @@
 /**
  * GroupCreatorForm - Form for creating groups with student selection
- * 
+ *
  * Features:
  * - Access control: Only teachers can see/use this form
  * - Multi-select student dropdown
  * - Creates group AND adds members in one transaction
  * - Uses UserProfileContext for teacher verification
- * 
+ *
  * Usage:
  * <GroupCreatorForm onSuccess={() => refreshGroups()} />
  */
@@ -27,14 +27,23 @@ interface GroupCreatorFormProps {
   onSuccess?: () => void;
 }
 
-export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess }) => {
-  const { isTeacher, loading: profileLoading, profile, refreshProfile } = useUserProfile();
-  
+export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({
+  onSuccess,
+}) => {
+  const {
+    isTeacher,
+    loading: profileLoading,
+    profile,
+    refreshProfile,
+  } = useUserProfile();
+
   // Form state
   const [groupName, setGroupName] = useState('');
   const [course, setCourse] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(
+    new Set()
+  );
   const [loading, setLoading] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +83,7 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
 
   // Toggle student selection
   const toggleStudent = (studentId: string) => {
-    setSelectedStudents(prev => {
+    setSelectedStudents((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(studentId)) {
         newSet.delete(studentId);
@@ -99,11 +108,13 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
       // STEP 1: Create the group with 'group_name' and 'created_by'
       const { data: groupData, error: groupError } = await supabase
         .from('groups') // Matches your schema
-        .insert([{ 
-          group_name: groupName.trim(), 
-          course: course.trim(),
-          created_by: profile.user_id // Ensure the teacher is the owner
-        }])
+        .insert([
+          {
+            group_name: groupName.trim(),
+            course: course.trim(),
+            created_by: profile.user_id, // Ensure the teacher is the owner
+          },
+        ])
         .select()
         .single();
 
@@ -113,9 +124,9 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
       const memberIds = Array.from(selectedStudents);
       memberIds.push(profile.user_id); // Auto-add the teacher to their own group
 
-      const memberInserts = memberIds.map(studentId => ({
+      const memberInserts = memberIds.map((studentId) => ({
         group_id: groupData.group_id, // Matches your schema 'group_id'
-        user_id: studentId
+        user_id: studentId,
       }));
 
       const { error: membersError } = await supabase
@@ -126,7 +137,9 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
         console.error('Error adding members:', membersError);
         setSuccess(`Group created, but adding members failed.`);
       } else {
-        setSuccess(`Success! Group created with ${selectedStudents.size} students.`);
+        setSuccess(
+          `Success! Group created with ${selectedStudents.size} students.`
+        );
       }
 
       // Reset and Refresh
@@ -134,7 +147,6 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
       setCourse('');
       setSelectedStudents(new Set());
       onSuccess?.();
-      
     } catch (err: any) {
       console.error('Submission error:', err);
       setError(err.message || 'An unexpected error occurred');
@@ -161,7 +173,9 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
           <X className="w-5 h-5 text-red-500" />
           <div>
             <h3 className="font-semibold text-red-700">Access Denied</h3>
-            <p className="text-sm text-red-600">Only teachers can create groups.</p>
+            <p className="text-sm text-red-600">
+              Only teachers can create groups.
+            </p>
           </div>
         </div>
       </div>
@@ -172,10 +186,10 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-6">
         <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-blue-100">
-          <Users className="w-5 h" />
+          <Users className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className-5 text-white="text-xl font-bold text-slate-800">Create New Group</h2>
+          <h2 className="text-xl font-bold text-slate-800">Create New Group</h2>
           <p className="text-xs text-slate-400">Add students while creating</p>
         </div>
       </div>
@@ -236,7 +250,7 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
               </span>
             )}
           </label>
-          
+
           {/* Multi-select dropdown */}
           <div className="relative">
             <button
@@ -246,15 +260,24 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all flex items-center justify-between text-left"
             >
               <span className="text-slate-600">
-                {studentsLoading ? 'Loading students...' : 
-                 selectedStudents.size === 0 ? 'Select students to add...' : 
-                 `${selectedStudents.size} student${selectedStudents.size > 1 ? 's' : ''} selected`}
+                {studentsLoading
+                  ? 'Loading students...'
+                  : selectedStudents.size === 0
+                    ? 'Select students to add...'
+                    : `${selectedStudents.size} student${selectedStudents.size > 1 ? 's' : ''} selected`}
               </span>
-              <svg 
-                className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} 
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              <svg
+                className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </button>
 
@@ -274,18 +297,24 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
                         className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            selectedStudents.has(student.user_id)
-                              ? 'bg-blue-500 border-blue-500'
-                              : 'border-slate-300'
-                          }`}>
-                            {selectedStudents.has(student.user_id) && <Check className="w-3 h-3 text-white" />}
+                          <div
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                              selectedStudents.has(student.user_id)
+                                ? 'bg-blue-500 border-blue-500'
+                                : 'border-slate-300'
+                            }`}
+                          >
+                            {selectedStudents.has(student.user_id) && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-slate-700">
                               {student.full_name}
                             </p>
-                            <p className="text-xs text-slate-400">{student.email}</p>
+                            <p className="text-xs text-slate-400">
+                              {student.email}
+                            </p>
                           </div>
                         </div>
                       </li>
@@ -300,8 +329,8 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
           {selectedStudents.size > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {students
-                .filter(s => selectedStudents.has(s.user_id))
-                .map(student => (
+                .filter((s) => selectedStudents.has(s.user_id))
+                .map((student) => (
                   <span
                     key={student.user_id}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg"
@@ -321,8 +350,8 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
         </div>
 
         {/* Submit Button */}
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={loading || !groupName.trim()}
           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
@@ -334,7 +363,9 @@ export const GroupCreatorForm: React.FC<GroupCreatorFormProps> = ({ onSuccess })
           ) : (
             <>
               <Plus className="w-4 h-4" />
-              Create Group {selectedStudents.size > 0 && `with ${selectedStudents.size} Student${selectedStudents.size > 1 ? 's' : ''}`}
+              Create Group{' '}
+              {selectedStudents.size > 0 &&
+                `with ${selectedStudents.size} Student${selectedStudents.size > 1 ? 's' : ''}`}
             </>
           )}
         </button>
