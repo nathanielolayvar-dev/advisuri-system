@@ -33,7 +33,7 @@ const validateDomain = (email: string | undefined): boolean => {
 
 function Logout(): React.JSX.Element {
   localStorage.clear();
-  return <Navigate to="/login" />;
+  return <Navigate to="/login" replace />;
 }
 
 function RegisterAndLogout(): React.JSX.Element {
@@ -41,101 +41,78 @@ function RegisterAndLogout(): React.JSX.Element {
   return <Register />;
 }
 
+// ─── STREAMLINED AUTH CALLBACK ─────────────────────────────────────────
 function AuthCallback(): React.JSX.Element | null {
   const navigate = useNavigate();
-  const [loading, setLoading] = React.useState(true);
+  const [errorOccurred, setErrorOccurred] = React.useState(false);
 
   React.useEffect(() => {
-    // Set up a dynamic listener to capture the exact moment the tokens clear parsing
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const processSession = async () => {
       try {
-        // We only care if a valid session state event is recognized
-        if (session) {
-          // 1. ORGANIZATIONAL ENFORCEMENT AT THE OAUTH REDIRECT CALLBACK ENTRY
-          if (!validateDomain(session.user?.email)) {
-            alert(
-              'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
-            );
-            await supabase.auth.signOut();
-            localStorage.clear();
-            sessionStorage.clear();
-            navigate('/login', { replace: true });
-            return;
-          }
+        // Wait directly for the active session matching the incoming url string
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-          // Everything checks out! Send them into the application
-          navigate('/dashboard', { replace: true });
-        } else if (
-          event === 'SIGNED_OUT' ||
-          (!session && event === 'INITIAL_SESSION')
-        ) {
-          // If Supabase completely finishes initializing and definitely has no token
+        if (error || !session) {
+          if (error) console.error('Callback parsing error:', error);
           navigate('/login', { replace: true });
+          return;
         }
+
+        if (!validateDomain(session.user?.email)) {
+          alert(
+            'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
+          );
+          await supabase.auth.signOut();
+          localStorage.clear();
+          sessionStorage.clear();
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        // Token is certified and stored cleanly. Force sync to guard, then enter!
+        localStorage.setItem(ACCESS_TOKEN, session.access_token);
+        navigate('/dashboard', { replace: true });
       } catch (err) {
         console.error('Unexpected error in auth callback:', err);
+        setErrorOccurred(true);
         navigate('/login', { replace: true });
-      } finally {
-        setLoading(false);
       }
-    });
-
-    return () => {
-      subscription.unsubscribe();
     };
+
+    processSession();
   }, [navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#64748B]">Completing sign in...</p>
-        </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-[#64748B]">Verifying institutional profile...</p>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
-// Wrapper component to redirect admin users away from certain routes
+// Wrapper components for route shielding
 function AdminRouteGuard({ children }: { children: React.ReactNode }) {
   const { userData, loading } = useSidebar();
-
-  if (loading) {
-    return <>{children}</>;
-  }
-
-  if (userData?.isAdmin === true) {
-    return <Navigate to="/admin" replace />;
-  }
-
+  if (loading) return <>{children}</>;
+  if (userData?.isAdmin === true) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
-// Wrapper for admin-only routes (redirects non-admins)
 function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
   const { userData, loading } = useSidebar();
-  const isAdminUser = userData?.isAdmin === true;
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAdminUser) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  if (loading)
+    return <div className="p-4">Verifying administration permissions...</div>;
+  if (userData?.isAdmin !== true) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
-// Wrapper component that handles idle timeout
 function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
   const { showWarning, remainingTime, logout, stayLoggedIn } = useIdleTimer();
-
   return (
     <>
       {children}
@@ -149,24 +126,17 @@ function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── MAIN APP ROUTER CONTAINER ──────────────────────────────────────────
 function App(): React.JSX.Element {
   useEffect(() => {
+    // Dedicated background event sync purely for background actions (Audit Logs, Session cleanups)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // 2. ORGANIZATIONAL ENFORCEMENT FOR STANDARD LOGIN STATE EMISSIONS
-        if (!validateDomain(session.user?.email)) {
-          alert(
-            'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
-          );
-          await supabase.auth.signOut();
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.href = '/login'; // Force hard redirect to guarantee context wipe
-          return;
-        }
+        if (!validateDomain(session.user?.email)) return;
 
+        // Ensure synchronous local storage assignment happens universally
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
 
         const userId = session.user.id;
@@ -175,36 +145,26 @@ function App(): React.JSX.Element {
 
         if (!sessionStorage.getItem(loginKey)) {
           try {
-            const { error: auditError } = await supabase
-              .from('audit_logs')
-              .insert({
-                user_id: userId,
-                action:
-                  provider === 'google'
-                    ? 'User logged in via Google OAuth'
-                    : 'User logged in (Email/Password)',
-                resource: 'Authentication',
-                status: 'Success',
-              });
+            await supabase.from('audit_logs').insert({
+              user_id: userId,
+              action:
+                provider === 'google'
+                  ? 'User logged in via Google OAuth'
+                  : 'User logged in (Email/Password)',
+              resource: 'Authentication',
+              status: 'Success',
+            });
 
-            if (auditError) {
-              console.error('Failed to create audit log:', auditError);
-            }
-
-            const { error: userError } = await supabase
+            await supabase
               .from('users')
               .update({
                 last_login: new Date().toISOString(),
               })
               .eq('user_id', userId);
 
-            if (userError) {
-              console.error('Failed to update last login:', userError);
-            }
-
             sessionStorage.setItem(loginKey, 'true');
           } catch (err) {
-            console.error('Error in login audit logging:', err);
+            console.error('Background log engine error:', err);
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -219,13 +179,13 @@ function App(): React.JSX.Element {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1. COMPLETELY UNPROTECTED & ISOLATED CLEAN ROUTES */}
+        {/* Unprotected isolated landing paths */}
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<RegisterAndLogout />} />
 
-        {/* 2. CORE SYSTEM USER PATHS (Wrapped neatly in context states) */}
+        {/* System core core workflows under unified environment status context wrappers */}
         <Route
           path="/*"
           element={
@@ -237,7 +197,6 @@ function App(): React.JSX.Element {
                       path="/"
                       element={<Navigate to="/dashboard" replace />}
                     />
-
                     <Route
                       path="/dashboard"
                       element={
@@ -248,7 +207,6 @@ function App(): React.JSX.Element {
                         </ProtectedRoute>
                       }
                     />
-
                     <Route
                       path="/groups"
                       element={
@@ -259,7 +217,6 @@ function App(): React.JSX.Element {
                         </ProtectedRoute>
                       }
                     />
-
                     <Route
                       path="/admin"
                       element={
@@ -270,7 +227,6 @@ function App(): React.JSX.Element {
                         </ProtectedRoute>
                       }
                     />
-
                     <Route
                       path="/analytics"
                       element={
@@ -281,7 +237,6 @@ function App(): React.JSX.Element {
                         </ProtectedRoute>
                       }
                     />
-
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </IdleTimerWrapper>
