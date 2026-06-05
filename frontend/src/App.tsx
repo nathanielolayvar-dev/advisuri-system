@@ -129,7 +129,7 @@ function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
 // ─── MAIN APP ROUTER CONTAINER ──────────────────────────────────────────
 function App(): React.JSX.Element {
   useEffect(() => {
-    // Dedicated background event sync purely for background actions (Audit Logs, Session cleanups)
+    // Dedicated background event sync purely for session state management and cleanups
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -143,8 +143,12 @@ function App(): React.JSX.Element {
         const provider = session.user.app_metadata?.provider || 'email';
         const loginKey = `logged_in_${userId}`;
 
+        // Only run audit updates if this specific login session hasn't been logged yet
         if (!sessionStorage.getItem(loginKey)) {
+          sessionStorage.setItem(loginKey, 'true'); // Set immediately to prevent rapid multi-firing
+
           try {
+            // Write the audit log entry
             await supabase.from('audit_logs').insert({
               user_id: userId,
               action:
@@ -155,14 +159,8 @@ function App(): React.JSX.Element {
               status: 'Success',
             });
 
-            await supabase
-              .from('users')
-              .update({
-                last_login: new Date().toISOString(),
-              })
-              .eq('user_id', userId);
-
-            sessionStorage.setItem(loginKey, 'true');
+            // REMOVED: Direct users table update statement from this listener block
+            // to eliminate database race conditions during brand-new user generation.
           } catch (err) {
             console.error('Background log engine error:', err);
           }
