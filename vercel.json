@@ -9,5 +9,15 @@
       "entrypoint": "backend",
       "routePrefix": "/_backend"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/_backend/(.*)",
+      "destination": "/_backend/$1"
+    },
+    {
+      "source": "/((?!_backend/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
