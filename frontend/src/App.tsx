@@ -44,23 +44,31 @@ function RegisterAndLogout(): React.JSX.Element {
 // ─── STREAMLINED AUTH CALLBACK ─────────────────────────────────────────
 function AuthCallback(): React.JSX.Element | null {
   const navigate = useNavigate();
-  const [errorOccurred, setErrorOccurred] = React.useState(false);
 
-  React.useEffect(() => {
-    const processSession = async () => {
+  useEffect(() => {
+    const completeHandshake = async () => {
       try {
-        // Wait directly for the active session matching the incoming url string
+        // 1. Exchange the OAuth code for a session if present
+        const { data: exchangeData, error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(window.location.search);
+        if (exchangeError) {
+          console.warn('OAuth code exchange issue:', exchangeError);
+        }
+
+        // 2. Retrieve the current session after the exchange
         const {
           data: { session },
-          error,
+          error: sessionError,
         } = await supabase.auth.getSession();
 
-        if (error || !session) {
-          if (error) console.error('Callback parsing error:', error);
+        if (sessionError || !session) {
+          if (sessionError)
+            console.error('Handshake parsing failed:', sessionError);
           navigate('/login', { replace: true });
           return;
         }
 
+        // 2. Validate institutional credentials
         if (!validateDomain(session.user?.email)) {
           alert(
             'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
@@ -72,24 +80,25 @@ function AuthCallback(): React.JSX.Element | null {
           return;
         }
 
-        // Token is certified and stored cleanly. Force sync to guard, then enter!
+        // 3. Complete authentication registration
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
         navigate('/dashboard', { replace: true });
       } catch (err) {
-        console.error('Unexpected error in auth callback:', err);
-        setErrorOccurred(true);
+        console.error('Handshake execution exception:', err);
         navigate('/login', { replace: true });
       }
     };
 
-    processSession();
+    completeHandshake();
   }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
       <div className="text-center">
         <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[#64748B]">Verifying institutional profile...</p>
+        <p className="text-[#64748B]">
+          Securing institutional workspace credentials...
+        </p>
       </div>
     </div>
   );
