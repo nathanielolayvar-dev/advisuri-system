@@ -46,56 +46,67 @@ function AuthCallback(): React.JSX.Element | null {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let checkCount = 0;
-
-    const parseAndRedirect = async () => {
+    const completeHandshake = async () => {
       try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+        // 1. Let Supabase automatically handle parsing the code or hash parameters from the URL
+        const { data, error } = await supabase.auth.getSession();
 
-        // If no session yet, wait and try again up to 5 times (gives SDK time to process URL)
-        if (!session && checkCount < 5) {
-          checkCount++;
-          setTimeout(parseAndRedirect, 200);
-          return;
-        }
-
-        if (error || !session) {
-          if (error) console.error('Callback parsing error:', error);
+        if (error) {
+          console.error('Handshake parsing failed:', error);
           navigate('/login', { replace: true });
           return;
         }
 
-        if (!validateDomain(session.user?.email)) {
-          alert(
-            'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
-          );
-          await supabase.auth.signOut();
-          localStorage.clear();
-          sessionStorage.clear();
-          navigate('/login', { replace: true });
+        const session = data.session;
+
+        if (!session) {
+          // Fallback catch: give it a tiny moment if the URL is still initializing
+          setTimeout(async () => {
+            const { data: retryData } = await supabase.auth.getSession();
+            if (retryData.session) {
+              handleValidSession(retryData.session);
+            } else {
+              navigate('/login', { replace: true });
+            }
+          }, 300);
           return;
         }
 
-        // Token is certified and stored cleanly.
-        localStorage.setItem(ACCESS_TOKEN, session.access_token);
-        navigate('/dashboard', { replace: true });
+        handleValidSession(session);
       } catch (err) {
-        console.error('Unexpected error in auth callback:', err);
+        console.error('Handshake execution exception:', err);
         navigate('/login', { replace: true });
       }
     };
 
-    parseAndRedirect();
+    const handleValidSession = async (session: any) => {
+      // 2. Validate institutional credentials
+      if (!validateDomain(session.user?.email)) {
+        alert(
+          'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
+        );
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      // 3. Complete authentication registration
+      localStorage.setItem(ACCESS_TOKEN, session.access_token);
+      navigate('/dashboard', { replace: true });
+    };
+
+    completeHandshake();
   }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
       <div className="text-center">
         <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[#64748B]">Verifying institutional profile...</p>
+        <p className="text-[#64748B]">
+          Securing institutional workspace credentials...
+        </p>
       </div>
     </div>
   );
