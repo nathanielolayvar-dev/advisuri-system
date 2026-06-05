@@ -218,66 +218,78 @@ function App(): React.JSX.Element {
 
   return (
     <BrowserRouter>
-      <SidebarProvider>
-        <UserProfileProvider>
-          <IdleTimerWrapper>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Routes>
+        {/* 1. COMPLETELY UNPROTECTED & ISOLATED CLEAN ROUTES */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/logout" element={<Logout />} />
+        <Route path="/register" element={<RegisterAndLogout />} />
 
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <AdminRouteGuard>
-                      <DashboardPage />
-                    </AdminRouteGuard>
-                  </ProtectedRoute>
-                }
-              />
+        {/* 2. CORE SYSTEM USER PATHS (Wrapped neatly in context states) */}
+        <Route
+          path="/*"
+          element={
+            <SidebarProvider>
+              <UserProfileProvider>
+                <IdleTimerWrapper>
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
 
-              <Route
-                path="/groups"
-                element={
-                  <ProtectedRoute>
-                    <AdminRouteGuard>
-                      <GroupPage />
-                    </AdminRouteGuard>
-                  </ProtectedRoute>
-                }
-              />
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <AdminRouteGuard>
+                            <DashboardPage />
+                          </AdminRouteGuard>
+                        </ProtectedRoute>
+                      }
+                    />
 
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminOnlyRoute>
-                      <AdminPage />
-                    </AdminOnlyRoute>
-                  </ProtectedRoute>
-                }
-              />
+                    <Route
+                      path="/groups"
+                      element={
+                        <ProtectedRoute>
+                          <AdminRouteGuard>
+                            <GroupPage />
+                          </AdminRouteGuard>
+                        </ProtectedRoute>
+                      }
+                    />
 
-              <Route
-                path="/analytics"
-                element={
-                  <ProtectedRoute>
-                    <AdminRouteGuard>
-                      <Analytics />
-                    </AdminRouteGuard>
-                  </ProtectedRoute>
-                }
-              />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute>
+                          <AdminOnlyRoute>
+                            <AdminPage />
+                          </AdminOnlyRoute>
+                        </ProtectedRoute>
+                      }
+                    />
 
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/logout" element={<Logout />} />
-              <Route path="/register" element={<RegisterAndLogout />} />
+                    <Route
+                      path="/analytics"
+                      element={
+                        <ProtectedRoute>
+                          <AdminRouteGuard>
+                            <Analytics />
+                          </AdminRouteGuard>
+                        </ProtectedRoute>
+                      }
+                    />
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </IdleTimerWrapper>
-        </UserProfileProvider>
-      </SidebarProvider>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </IdleTimerWrapper>
+              </UserProfileProvider>
+            </SidebarProvider>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
