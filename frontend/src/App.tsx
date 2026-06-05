@@ -33,7 +33,7 @@ const validateDomain = (email: string | undefined): boolean => {
 
 function Logout(): React.JSX.Element {
   localStorage.clear();
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/login" />;
 }
 
 function RegisterAndLogout(): React.JSX.Element {
@@ -41,95 +41,101 @@ function RegisterAndLogout(): React.JSX.Element {
   return <Register />;
 }
 
-// ─── STREAMLINED AUTH CALLBACK ─────────────────────────────────────────
 function AuthCallback(): React.JSX.Element | null {
   const navigate = useNavigate();
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
-    const completeHandshake = async () => {
+  React.useEffect(() => {
+    const handleAuth = async () => {
       try {
-        // 1. Let Supabase automatically handle parsing the code or hash parameters from the URL
-        const { data, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Handshake parsing failed:', error);
+          console.error('Auth callback error:', error);
           navigate('/login', { replace: true });
           return;
         }
 
-        const session = data.session;
+        if (session) {
+          // 1. ORGANIZATIONAL ENFORCEMENT AT THE OAUTH REDIRECT CALLBACK ENTRY
+          if (!validateDomain(session.user?.email)) {
+            alert(
+              'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
+            );
+            await supabase.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+            navigate('/login', { replace: true });
+            return;
+          }
 
-        if (!session) {
-          // Fallback catch: give it a tiny moment if the URL is still initializing
-          setTimeout(async () => {
-            const { data: retryData } = await supabase.auth.getSession();
-            if (retryData.session) {
-              handleValidSession(retryData.session);
-            } else {
-              navigate('/login', { replace: true });
-            }
-          }, 300);
-          return;
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/login', { replace: true });
         }
-
-        handleValidSession(session);
       } catch (err) {
-        console.error('Handshake execution exception:', err);
+        console.error('Unexpected error in auth callback:', err);
         navigate('/login', { replace: true });
+      } finally {
+        setLoading(false);
       }
     };
 
-    const handleValidSession = async (session: any) => {
-      // 2. Validate institutional credentials
-      if (!validateDomain(session.user?.email)) {
-        alert(
-          'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
-        );
-        await supabase.auth.signOut();
-        localStorage.clear();
-        sessionStorage.clear();
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      // 3. Complete authentication registration
-      localStorage.setItem(ACCESS_TOKEN, session.access_token);
-      navigate('/dashboard', { replace: true });
-    };
-
-    completeHandshake();
+    handleAuth();
   }, [navigate]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-      <div className="text-center">
-        <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[#64748B]">
-          Securing institutional workspace credentials...
-        </p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#64748B]">Completing sign in...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }
 
-// Wrapper components for route shielding
+// Wrapper component to redirect admin users away from certain routes
 function AdminRouteGuard({ children }: { children: React.ReactNode }) {
   const { userData, loading } = useSidebar();
-  if (loading) return <>{children}</>;
-  if (userData?.isAdmin === true) return <Navigate to="/admin" replace />;
+
+  if (loading) {
+    return <>{children}</>;
+  }
+
+  if (userData?.isAdmin === true) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return <>{children}</>;
 }
 
+// Wrapper for admin-only routes (redirects non-admins)
 function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
   const { userData, loading } = useSidebar();
-  if (loading)
-    return <div className="p-4">Verifying administration permissions...</div>;
-  if (userData?.isAdmin !== true) return <Navigate to="/dashboard" replace />;
+  const isAdminUser = userData?.isAdmin === true;
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAdminUser) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 }
 
+// Wrapper component that handles idle timeout
 function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
   const { showWarning, remainingTime, logout, stayLoggedIn } = useIdleTimer();
+
   return (
     <>
       {children}
@@ -143,27 +149,33 @@ function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── MAIN APP ROUTER CONTAINER ──────────────────────────────────────────
 function App(): React.JSX.Element {
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        if (!validateDomain(session.user?.email)) return;
+        // 2. ORGANIZATIONAL ENFORCEMENT FOR STANDARD LOGIN STATE EMISSIONS
+        if (!validateDomain(session.user?.email)) {
+          alert(
+            'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
+          );
+          await supabase.auth.signOut();
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = '/login'; // Force hard redirect to guarantee context wipe
+          return;
+        }
 
-        // Synchronous assignment happens universally
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
 
         const userId = session.user.id;
         const provider = session.user.app_metadata?.provider || 'email';
         const loginKey = `logged_in_${userId}`;
 
-        // Standard session log entry (Bypassed with try/catch to ensure it NEVER blocks navigation)
         if (!sessionStorage.getItem(loginKey)) {
-          sessionStorage.setItem(loginKey, 'true');
           try {
-            supabase
+            const { error: auditError } = await supabase
               .from('audit_logs')
               .insert({
                 user_id: userId,
@@ -173,13 +185,26 @@ function App(): React.JSX.Element {
                     : 'User logged in (Email/Password)',
                 resource: 'Authentication',
                 status: 'Success',
-              })
-              .then(({ error }) => {
-                if (error)
-                  console.warn('Non-blocking log engine message:', error);
               });
+
+            if (auditError) {
+              console.error('Failed to create audit log:', auditError);
+            }
+
+            const { error: userError } = await supabase
+              .from('users')
+              .update({
+                last_login: new Date().toISOString(),
+              })
+              .eq('user_id', userId);
+
+            if (userError) {
+              console.error('Failed to update last login:', userError);
+            }
+
+            sessionStorage.setItem(loginKey, 'true');
           } catch (err) {
-            console.warn('Background log engine error bypassed:', err);
+            console.error('Error in login audit logging:', err);
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -193,73 +218,66 @@ function App(): React.JSX.Element {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Unprotected isolated landing paths */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/logout" element={<Logout />} />
-        <Route path="/register" element={<RegisterAndLogout />} />
+      <SidebarProvider>
+        <UserProfileProvider>
+          <IdleTimerWrapper>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
 
-        {/* System core core workflows under unified environment status context wrappers */}
-        <Route
-          path="/*"
-          element={
-            <SidebarProvider>
-              <UserProfileProvider>
-                <IdleTimerWrapper>
-                  <Routes>
-                    <Route
-                      path="/"
-                      element={<Navigate to="/dashboard" replace />}
-                    />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute>
-                          <AdminRouteGuard>
-                            <DashboardPage />
-                          </AdminRouteGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/groups"
-                      element={
-                        <ProtectedRoute>
-                          <AdminRouteGuard>
-                            <GroupPage />
-                          </AdminRouteGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute>
-                          <AdminOnlyRoute>
-                            <AdminPage />
-                          </AdminOnlyRoute>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/analytics"
-                      element={
-                        <ProtectedRoute>
-                          <AdminRouteGuard>
-                            <Analytics />
-                          </AdminRouteGuard>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </IdleTimerWrapper>
-              </UserProfileProvider>
-            </SidebarProvider>
-          }
-        />
-      </Routes>
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <AdminRouteGuard>
+                      <DashboardPage />
+                    </AdminRouteGuard>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/groups"
+                element={
+                  <ProtectedRoute>
+                    <AdminRouteGuard>
+                      <GroupPage />
+                    </AdminRouteGuard>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminOnlyRoute>
+                      <AdminPage />
+                    </AdminOnlyRoute>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AdminRouteGuard>
+                      <Analytics />
+                    </AdminRouteGuard>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="/login" element={<Login />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/logout" element={<Logout />} />
+              <Route path="/register" element={<RegisterAndLogout />} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </IdleTimerWrapper>
+        </UserProfileProvider>
+      </SidebarProvider>
     </BrowserRouter>
   );
 }

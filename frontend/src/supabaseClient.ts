@@ -5,15 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Safety check to ensure variables are loading
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    'Supabase environment variables are missing! Check your .env file.'
-  );
+  console.error("Supabase environment variables are missing! Check your .env file.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true, // 👈 ADD THIS: Explicitly forces local storage tokens
-    autoRefreshToken: true,
-    detectSessionInUrl: true, // 👈 ADD THIS: Ensures it actively listens for hash/query tokens
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -11,6 +11,9 @@ const rootElement = document.getElementById('root')!;
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    {/* Provide the Google context to all child components */}
+    <GoogleOAuthProvider clientId="928179385020-2fkalgbejbopemc6qcndo5ee8o9dglld.apps.googleusercontent.com">
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
