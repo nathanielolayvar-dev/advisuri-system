@@ -46,19 +46,12 @@ function AuthCallback(): React.JSX.Element | null {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const handleAuth = async () => {
+    // Set up a dynamic listener to capture the exact moment the tokens clear parsing
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('Auth callback error:', error);
-          navigate('/login', { replace: true });
-          return;
-        }
-
+        // We only care if a valid session state event is recognized
         if (session) {
           // 1. ORGANIZATIONAL ENFORCEMENT AT THE OAUTH REDIRECT CALLBACK ENTRY
           if (!validateDomain(session.user?.email)) {
@@ -72,8 +65,13 @@ function AuthCallback(): React.JSX.Element | null {
             return;
           }
 
+          // Everything checks out! Send them into the application
           navigate('/dashboard', { replace: true });
-        } else {
+        } else if (
+          event === 'SIGNED_OUT' ||
+          (!session && event === 'INITIAL_SESSION')
+        ) {
+          // If Supabase completely finishes initializing and definitely has no token
           navigate('/login', { replace: true });
         }
       } catch (err) {
@@ -82,9 +80,11 @@ function AuthCallback(): React.JSX.Element | null {
       } finally {
         setLoading(false);
       }
-    };
+    });
 
-    handleAuth();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   if (loading) {
