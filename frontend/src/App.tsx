@@ -129,26 +129,34 @@ function IdleTimerWrapper({ children }: { children: React.ReactNode }) {
 // ─── MAIN APP ROUTER CONTAINER ──────────────────────────────────────────
 function App(): React.JSX.Element {
   useEffect(() => {
-    // Dedicated background event sync purely for session state management and cleanups
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         if (!validateDomain(session.user?.email)) return;
 
-        // Ensure synchronous local storage assignment happens universally
+        // Clean local token assignment
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
 
         const userId = session.user.id;
         const provider = session.user.app_metadata?.provider || 'email';
         const loginKey = `logged_in_${userId}`;
 
-        // Only run audit updates if this specific login session hasn't been logged yet
-        if (!sessionStorage.getItem(loginKey)) {
-          sessionStorage.setItem(loginKey, 'true'); // Set immediately to prevent rapid multi-firing
+        // SAFETY GATE: If this is a brand new Google registration, skip immediate
+        // database audit logs to allow the database triggers to complete seamlessly.
+        if (
+          provider === 'google' &&
+          !sessionStorage.getItem('oauth_verified')
+        ) {
+          sessionStorage.setItem(loginKey, 'true');
+          sessionStorage.setItem('oauth_verified', 'true');
+          return;
+        }
 
+        // Standard session tracking for established profiles
+        if (!sessionStorage.getItem(loginKey)) {
+          sessionStorage.setItem(loginKey, 'true');
           try {
-            // Write the audit log entry
             await supabase.from('audit_logs').insert({
               user_id: userId,
               action:
@@ -158,11 +166,8 @@ function App(): React.JSX.Element {
               resource: 'Authentication',
               status: 'Success',
             });
-
-            // REMOVED: Direct users table update statement from this listener block
-            // to eliminate database race conditions during brand-new user generation.
           } catch (err) {
-            console.error('Background log engine error:', err);
+            console.warn('Background log engine bypassed safely:', err);
           }
         }
       } else if (event === 'SIGNED_OUT') {
