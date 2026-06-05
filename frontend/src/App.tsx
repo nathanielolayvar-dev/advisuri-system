@@ -46,29 +46,28 @@ function AuthCallback(): React.JSX.Element | null {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const completeHandshake = async () => {
-      try {
-        // 1. Exchange the OAuth code for a session if present
-        const { data: exchangeData, error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(window.location.search);
-        if (exchangeError) {
-          console.warn('OAuth code exchange issue:', exchangeError);
-        }
+    let checkCount = 0;
 
-        // 2. Retrieve the current session after the exchange
+    const parseAndRedirect = async () => {
+      try {
         const {
           data: { session },
-          error: sessionError,
+          error,
         } = await supabase.auth.getSession();
 
-        if (sessionError || !session) {
-          if (sessionError)
-            console.error('Handshake parsing failed:', sessionError);
+        // If no session yet, wait and try again up to 5 times (gives SDK time to process URL)
+        if (!session && checkCount < 5) {
+          checkCount++;
+          setTimeout(parseAndRedirect, 200);
+          return;
+        }
+
+        if (error || !session) {
+          if (error) console.error('Callback parsing error:', error);
           navigate('/login', { replace: true });
           return;
         }
 
-        // 2. Validate institutional credentials
         if (!validateDomain(session.user?.email)) {
           alert(
             'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
@@ -80,25 +79,23 @@ function AuthCallback(): React.JSX.Element | null {
           return;
         }
 
-        // 3. Complete authentication registration
+        // Token is certified and stored cleanly.
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
         navigate('/dashboard', { replace: true });
       } catch (err) {
-        console.error('Handshake execution exception:', err);
+        console.error('Unexpected error in auth callback:', err);
         navigate('/login', { replace: true });
       }
     };
 
-    completeHandshake();
+    parseAndRedirect();
   }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
       <div className="text-center">
         <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[#64748B]">
-          Securing institutional workspace credentials...
-        </p>
+        <p className="text-[#64748B]">Verifying institutional profile...</p>
       </div>
     </div>
   );
@@ -144,39 +141,34 @@ function App(): React.JSX.Element {
       if (event === 'SIGNED_IN' && session) {
         if (!validateDomain(session.user?.email)) return;
 
-        // Clean local token assignment
+        // Synchronous assignment happens universally
         localStorage.setItem(ACCESS_TOKEN, session.access_token);
 
         const userId = session.user.id;
         const provider = session.user.app_metadata?.provider || 'email';
         const loginKey = `logged_in_${userId}`;
 
-        // SAFETY GATE: If this is a brand new Google registration, skip immediate
-        // database audit logs to allow the database triggers to complete seamlessly.
-        if (
-          provider === 'google' &&
-          !sessionStorage.getItem('oauth_verified')
-        ) {
-          sessionStorage.setItem(loginKey, 'true');
-          sessionStorage.setItem('oauth_verified', 'true');
-          return;
-        }
-
-        // Standard session tracking for established profiles
+        // Standard session log entry (Bypassed with try/catch to ensure it NEVER blocks navigation)
         if (!sessionStorage.getItem(loginKey)) {
           sessionStorage.setItem(loginKey, 'true');
           try {
-            await supabase.from('audit_logs').insert({
-              user_id: userId,
-              action:
-                provider === 'google'
-                  ? 'User logged in via Google OAuth'
-                  : 'User logged in (Email/Password)',
-              resource: 'Authentication',
-              status: 'Success',
-            });
+            supabase
+              .from('audit_logs')
+              .insert({
+                user_id: userId,
+                action:
+                  provider === 'google'
+                    ? 'User logged in via Google OAuth'
+                    : 'User logged in (Email/Password)',
+                resource: 'Authentication',
+                status: 'Success',
+              })
+              .then(({ error }) => {
+                if (error)
+                  console.warn('Non-blocking log engine message:', error);
+              });
           } catch (err) {
-            console.warn('Background log engine bypassed safely:', err);
+            console.warn('Background log engine error bypassed:', err);
           }
         }
       } else if (event === 'SIGNED_OUT') {

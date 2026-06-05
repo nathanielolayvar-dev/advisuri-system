@@ -39,10 +39,9 @@ function Form() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          // ADD THIS: Forces Google to streamline the UI for your school domain
           queryParams: {
             hd: 'tip.edu.ph',
-            prompt: 'select_account', // Ensures the account picker always displays
+            prompt: 'select_account',
           },
         },
       });
