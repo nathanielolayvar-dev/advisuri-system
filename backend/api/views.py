@@ -11,7 +11,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from urllib3 import request
-from urllib3 import request
 
 from api.analytics.algorithms.member_bandwidth import calculate_detailed_bandwidth
 from api.analytics.algorithms.risk_detection import predict_project_risk
@@ -67,7 +66,6 @@ def get_ai_model():
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-
 def get_user_profile(request):
     user = request.user 
     full_name = f"{user.first_name} {user.last_name}".strip()
@@ -133,25 +131,21 @@ class SupabaseTestView(APIView):
             }, status=500)
 
 class GroupViewSet(viewsets.ModelViewSet):
-    # queryset = Group.objects.all() <- override this with get_que  ryset to filter by user
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
     
-        # Check if the user is actually authenticated in the eyes of Django
         if not user.is_authenticated:
             print("DEBUG: Django sees an ANONYMOUS user!")
-            return Group.objects.none() # Return nothing if not logged in
+            return Group.objects.none()
         
-        # Fetch groups directly from Supabase Table
         headers = {
             "apikey": settings.SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_ANON_KEY}" # Or Service Role Key
+            "Authorization": f"Bearer {settings.SUPABASE_ANON_KEY}"
         }
 
-        # Query the 'api_group_members' table directly to see what this user owns
         url = f"{settings.SUPABASE_URL}/rest/v1/api_group_members?user_id=eq.{user.supabase_id}&select=group_id,groups(name,course)"
             
         try:
@@ -161,21 +155,18 @@ class GroupViewSet(viewsets.ModelViewSet):
             for item in supabase_data:
                 group_info = item.get('groups')
                 if group_info:
-                    # Create the group in Django if it doesn't exist locally
                     group, created = Group.objects.get_or_create(
-                        id=item['group_id'], # Use Supabase UUID as Django ID
+                        id=item['group_id'],
                         defaults={
                             'name': group_info['name'],
                             'course': group_info.get('course', 'IS-OJT')
                         }
                     )
-                    # Ensure the current user is linked to this group in Django
                     group.members.add(user)
 
         except Exception as e:
             print(f"Sync error: {e}")
         
-        # Return ONLY the groups where this user is a member
         return Group.objects.filter(members__supabase_id=user.supabase_id).distinct()
 
     def perform_create(self, serializer):
@@ -253,13 +244,12 @@ class DocumentDelete(generics.DestroyAPIView):
     def get_queryset(self):
         return Document.objects.filter(uploaded_by=self.request.user)
 
-# Handles the logic for all 8 features by calling the methods
+
 class GroupAnalyticsDashboard(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, group_id):
         # 1. Validate group
-        # BEFORE querying Supabase
         print("DEBUG group_id:", group_id)
         print("TYPE:", type(group_id))  
         try:
@@ -299,7 +289,6 @@ class GroupAnalyticsDashboard(APIView):
 
         print("TASKS DF COLUMNS:", tasks_df.columns)
 
-        #Normalization: Handle both 'assigned_to' and 'assignee_id', and ensure 'end_date' exists
         if not tasks_df.empty:
             if "assigned_to" in tasks_df.columns:
                 tasks_df["user_id"] = tasks_df["assigned_to"]
@@ -325,8 +314,6 @@ class GroupAnalyticsDashboard(APIView):
 
         if messages_df.empty:
             print("⚠️ No messages found for this group")
-
-            # Create fallback structure
             messages_df = pd.DataFrame(columns=[
                 "id", "group_id", "text", "created_at", "user_id"
             ])
@@ -335,7 +322,6 @@ class GroupAnalyticsDashboard(APIView):
         engine = AnalyticsEngine(tasks_df, messages_df)
 
         # 5. Prepare inputs
-        # Dynamically set the deadline based on the project's latest task
         if not tasks_df.empty and "end_date" in tasks_df.columns:
             latest_date = pd.to_datetime(tasks_df["end_date"], errors='coerce').max()
             deadline_str = latest_date.strftime("%Y-%m-%d") if pd.notnull(latest_date) else "2026-12-31"
@@ -352,70 +338,58 @@ class GroupAnalyticsDashboard(APIView):
             current_user_id
         )
 
-        # 🚨 If no data → return early
         if "error" in analysis_results:
             return Response(analysis_results, status=200)
 
-        # 7. Add member report (FIXED)
+        # 7. Add member report
         analysis_results["member_report"] = self.get_member_bandwidth_report(
             group,
             tasks_df,
             engine
         )
 
-        # 8. Add history (REQUIRED for frontend charts)
+        # 8. Add history
         analysis_results["history"] = self.generate_history(tasks_df)
 
         # 9. INTEGRATE AI RISK MATRIX LOGIC
         metrics = analysis_results.get("metrics", {})
         
-            # Calculate behavioral markers
         overdue_count = len(tasks_df[tasks_df["is_overdue"] == True]) if not tasks_df.empty else 0
         
-            # Calculate inactivity (days since last message or task completion)
-            # We can derive this from your messages_df or tasks_df
+        # 👇 FIX: Initialize inactivity_days to a default value before the conditional check
+        inactivity_days = 0 
+        
         if not messages_df.empty:
-            # .dt.tz_localize(None) removes timezone if it exists, 
-            # then we compare it against a naive 'now' to keep it simple.
             last_msg = pd.to_datetime(messages_df['created_at']).max()
             
-            # Ensure last_msg is UTC aware to match utcnow()
-            if last_msg.tzinfo is None:
-                last_msg = last_msg.tz_localize('UTC')
-            else:
-                last_msg = last_msg.tz_convert('UTC')
+            if pd.notnull(last_msg):
+                if last_msg.tzinfo is None:
+                    last_msg = last_msg.tz_localize('UTC')
+                else:
+                    last_msg = last_msg.tz_convert('UTC')
 
-            inactivity_days = (pd.Timestamp.utcnow() - last_msg).days
+                inactivity_days = (pd.Timestamp.utcnow() - last_msg).days
         
-            # Run your AI algorithm (cloud-fetched model) to get risk level
         model_payload = get_ai_model()
 
         if model_payload:
-            # We pass the loaded model/scaler directly or update predict_project_risk 
-            # to handle a dictionary instead of a file path.
             risk_data = predict_project_risk(tasks_df, overdue_count, inactivity_days, model_payload)
         else:
-            # Fallback if Supabase is down or model is missing
             risk_data = {"status": "Low", "score": 1, "likelihood": 1, "impact": 1}
 
-            # Update the metrics object for the frontend
         metrics.update({
-            "ai_risk_level": risk_data["status"],      # "Low", "Medium", "High"
-            "risk_score": risk_data["score"],          # 1-25
-            "risk_likelihood": risk_data["likelihood"],# 1-5 (X-axis)
-            "risk_impact": risk_data["impact"],        # 1-5 (Y-axis)
+            "ai_risk_level": risk_data["status"],
+            "risk_score": risk_data["score"],
+            "risk_likelihood": risk_data["likelihood"],
+            "risk_impact": risk_data["impact"],
         })
 
         analysis_results["metrics"] = metrics
 
         return Response(analysis_results)
 
-    # ----------------------------------------
-    # MEMBER BANDWIDTH (FIXED)
-    # ----------------------------------------
     def get_member_bandwidth_report(self, group, tasks_df, engine):
         report = []
-
         if tasks_df.empty:
             return report
 
@@ -434,7 +408,6 @@ class GroupAnalyticsDashboard(APIView):
             ]
 
             load_count = len(member_tasks)
-
             risk_score = calculate_detailed_bandwidth(tasks_df, user_id)
 
             report.append({
@@ -450,25 +423,17 @@ class GroupAnalyticsDashboard(APIView):
 
         return report
 
-    # ----------------------------------------
-    # SIMPLE HISTORY GENERATOR (NEW)
-    # ----------------------------------------
     def generate_history(self, tasks_df):
         if tasks_df.empty or 'created_at' not in tasks_df.columns:
             return {
-                "dates": [],
-                "completed_counts": [],
-                "total_counts": [],
-                "velocity_trend": [],
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
+                "dates": [], "completed_counts": [], "total_counts": [],
+                "velocity_trend": [], "prediction_dates": [],
+                "backlog_prediction": [], "incoming_prediction": []
             }
 
         try:
             df = tasks_df.copy()
             df['created_at'] = pd.to_datetime(df['created_at'])
-
             daily = df.groupby(df['created_at'].dt.date).size()
 
             return {
@@ -476,41 +441,24 @@ class GroupAnalyticsDashboard(APIView):
                 "completed_counts": daily.cumsum().tolist(),
                 "total_counts": [len(df)] * len(daily),
                 "velocity_trend": daily.rolling(3).mean().fillna(0).tolist(),
-
-                # placeholders for now
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
+                "prediction_dates": [], "backlog_prediction": [], "incoming_prediction": []
             }
-
         except Exception as e:
             print("History generation error:", e)
             return {
-                "dates": [],
-                "completed_counts": [],
-                "total_counts": [],
-                "velocity_trend": [],
-                "prediction_dates": [],
-                "backlog_prediction": [],
-                "incoming_prediction": []
+                "dates": [], "completed_counts": [], "total_counts": [],
+                "velocity_trend": [], "prediction_dates": [],
+                "backlog_prediction": [], "incoming_prediction": []
             }
 
-    # ----------------------------------------
-    # MEMBER BANDWIDTH LOGIC
-    # ----------------------------------------
     def predict_member_bandwidth(self, member_id, load_count):
-        if load_count == 0:
-            return "Optimal"
-        if load_count >= 7:
-            return "Critical"
-        elif load_count >= 4:
-            return "High"
-        elif load_count >= 2:
-            return "Balanced"
-        else:
-            return "Low"
+        if load_count == 0: return "Optimal"
+        if load_count >= 7: return "Critical"
+        elif load_count >= 4: return "High"
+        elif load_count >= 2: return "Balanced"
+        else: return "Low"
         
 class AdminCreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser] # Restricts to Admins
+    permission_classes = [permissions.IsAdminUser]
