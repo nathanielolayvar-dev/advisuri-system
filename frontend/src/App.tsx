@@ -41,64 +41,44 @@ function RegisterAndLogout(): React.JSX.Element {
   return <Register />;
 }
 
-function AuthCallback(): React.JSX.Element | null {
+function AuthCallback() {
   const navigate = useNavigate();
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const handleAuth = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+      // 1. Get the session directly from the URL/Hash
+      const { data, error } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error('Auth callback error:', error);
-          navigate('/login', { replace: true });
-          return;
-        }
-
-        if (session) {
-          // 1. ORGANIZATIONAL ENFORCEMENT AT THE OAUTH REDIRECT CALLBACK ENTRY
-          if (!validateDomain(session.user?.email)) {
-            alert(
-              'Access Denied! Please sign in using your official institutional email (@tip.edu.ph).'
-            );
-            await supabase.auth.signOut();
-            localStorage.clear();
-            sessionStorage.clear();
-            navigate('/login', { replace: true });
-            return;
-          }
-
-          navigate('/dashboard', { replace: true });
-        } else {
-          navigate('/login', { replace: true });
-        }
-      } catch (err) {
-        console.error('Unexpected error in auth callback:', err);
+      if (error || !data.session) {
+        console.error('Session error:', error);
         navigate('/login', { replace: true });
-      } finally {
-        setLoading(false);
+        return;
       }
+
+      // 2. Validate the domain
+      const email = data.session.user.email;
+      if (!email || !email.endsWith('@tip.edu.ph')) {
+        alert('Access Denied! Please sign in with your @tip.edu.ph email.');
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      // 3. If everything is valid, proceed to dashboard
+      navigate('/dashboard', { replace: true });
     };
 
     handleAuth();
   }, [navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#64748B]">Completing sign in...</p>
-        </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-[#64748B]">Verifying your session...</p>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 // Wrapper component to redirect admin users away from certain routes
